@@ -1,3 +1,4 @@
+import { getBinaryCpmmBetInfoWrapper, getMarketProb } from "@/lib/market-utils";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { createUseStyles } from "react-jss";
@@ -19,10 +20,10 @@ const useStyles = createUseStyles((theme: any) => ({
   },
   calculatorRow: {
     marginBottom: "16px",
-    '& input': {
+    "& input": {
       marginLeft: 8,
-    }
-  }
+    },
+  },
 }));
 
 function calculateKellyBet(/* add required parameters here */) {
@@ -30,9 +31,18 @@ function calculateKellyBet(/* add required parameters here */) {
   return 0; // Replace with the actual calculated value
 }
 
-function calculateNaiveKellyFraction({marketProb, estimatedProb, kellyFraction} : {marketProb: number, estimatedProb: number, kellyFraction: number}) {
+function calculateNaiveKellyFraction({
+  marketProb,
+  estimatedProb,
+  kellyFraction,
+}: {
+  marketProb: number;
+  estimatedProb: number;
+  kellyFraction: number;
+}) {
   // kellyFraction * ((p - p_market) / (1 - p_market))
-  const naiveKelly = kellyFraction * ((estimatedProb - marketProb) / (1 - marketProb));
+  const naiveKelly =
+    kellyFraction * ((estimatedProb - marketProb) / (1 - marketProb));
   // clamp between 0 and 1
   return Math.min(Math.max(naiveKelly, 0), 1);
 }
@@ -47,30 +57,28 @@ export default function Home() {
 
   const [marketProb, setMarketProb] = useState(0);
 
-  async function fetchMarketData(marketSlug: string) {
-    try {
-      const response = await fetch(`https://manifold.markets/api/v0/slug/${marketSlug}`);
-      if (response.ok) {
-        const marketData = await response.json();
-        setMarketProb(marketData.probability);
-      } else {
-        console.error("Error fetching market data:", response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error("Error fetching market data:", error);
-    }
-  }
-
   useEffect(() => {
-    if (marketInput && marketInput.length > 0) {
-      fetchMarketData(marketInput);
+    if (!marketInput || marketInput.length > 0) {
+      const fetchMarketProb = async (slug: string) => {
+        const marketProb = await getMarketProb(slug);
+        const res = await getBinaryCpmmBetInfoWrapper("YES", 100, slug);
+        console.log(res);
+        if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
+
+        setMarketProb(marketProb);
+      };
+      fetchMarketProb(marketInput);
     }
   }, [marketInput]);
 
   // const kellyBet = calculateKellyBet(/* pass required parameters here */);
   // const naiveKellyBet = calculateNaiveKellyBet(/* pass required parameters here */);
   const [kellyBet, setKellyBet] = useState(0);
-  const naiveKellyBet = calculateNaiveKellyFraction({marketProb: marketProb, estimatedProb: probabilityInput, kellyFraction: kellyFractionInput});
+  const naiveKellyBet = calculateNaiveKellyFraction({
+    marketProb: marketProb,
+    estimatedProb: probabilityInput,
+    kellyFraction: kellyFractionInput,
+  });
 
   return (
     <>
