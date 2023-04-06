@@ -1,4 +1,6 @@
+import { getManifoldApi } from "@/lib/manifold-api";
 import { getBinaryCpmmBetInfoWrapper, getMarketProb } from "@/lib/market-utils";
+import { User } from "@/lib/vendor/manifold-sdk";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { createUseStyles } from "react-jss";
@@ -34,15 +36,18 @@ function calculateKellyBet(/* add required parameters here */) {
 function calculateNaiveKellyFraction({
   marketProb,
   estimatedProb,
-  kellyFraction,
+  deferenceFactor,
 }: {
   marketProb: number;
   estimatedProb: number;
-  kellyFraction: number;
+  deferenceFactor: number;
 }) {
   // kellyFraction * ((p - p_market) / (1 - p_market))
   const naiveKelly =
-    kellyFraction * ((estimatedProb - marketProb) / (1 - marketProb));
+    deferenceFactor * ((estimatedProb - marketProb) / (1 - marketProb));
+
+  // Adjust for market liquidity, this will always give a lower amount than
+
   // clamp between 0 and 1
   return Math.min(Math.max(naiveKelly, 0), 1);
 }
@@ -50,26 +55,43 @@ function calculateNaiveKellyFraction({
 export default function Home() {
   const classes = useStyles();
   /* User inputs */
-  const [manifoldInput, setManifoldInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [marketInput, setMarketInput] = useState("");
   const [probabilityInput, setProbabilityInput] = useState(0);
   const [kellyFractionInput, setKellyFractionInput] = useState(0.5);
 
   const [marketProb, setMarketProb] = useState(0);
+  const [user, setUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
-    if (!marketInput || marketInput.length > 0) {
-      const fetchMarketProb = async (slug: string) => {
-        const marketProb = await getMarketProb(slug);
-        const res = await getBinaryCpmmBetInfoWrapper("YES", 100, slug);
-        console.log(res);
-        if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
+    if (!marketInput || marketInput.length == 0) return;
 
-        setMarketProb(marketProb);
-      };
-      fetchMarketProb(marketInput);
-    }
+    const fetchMarketProb = async (slug: string) => {
+      const marketProb = await getMarketProb(slug);
+      const res = await getBinaryCpmmBetInfoWrapper("YES", 100, slug);
+      console.log(res);
+      if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
+
+      setMarketProb(marketProb);
+    };
+    fetchMarketProb(marketInput);
   }, [marketInput]);
+
+  // Get the user
+  useEffect(() => {
+    if (!usernameInput || usernameInput.length == 0) return;
+
+    const fetchUser = async (username: string) => {
+      try {
+        const user = await getManifoldApi().getUser({ username });
+        setUser(user);
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+    };
+    fetchUser(usernameInput);
+  }, [usernameInput]);
 
   // const kellyBet = calculateKellyBet(/* pass required parameters here */);
   // const naiveKellyBet = calculateNaiveKellyBet(/* pass required parameters here */);
@@ -77,7 +99,7 @@ export default function Home() {
   const naiveKellyBet = calculateNaiveKellyFraction({
     marketProb: marketProb,
     estimatedProb: probabilityInput,
-    kellyFraction: kellyFractionInput,
+    deferenceFactor: kellyFractionInput,
   });
 
   return (
@@ -97,13 +119,13 @@ export default function Home() {
       <main className={classes.main}>
         <div className={classes.centralColumn}>
           <div className={classes.calculatorRow}>
-            <label htmlFor="manifoldInput">Manifold username or url:</label>
+            <label htmlFor="usernameInput">Manifold username or url:</label>
             <input
-              id="manifoldInput"
+              id="usernameInput"
               type="text"
               placeholder="e.g. @WilliamHoward or https://manifold.markets/WilliamHoward"
-              value={manifoldInput}
-              onChange={(e) => setManifoldInput(e.target.value)}
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
             />
           </div>
           <div className={classes.calculatorRow}>
