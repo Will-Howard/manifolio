@@ -1,6 +1,6 @@
 import { InputField } from "@/components/InputField";
 import {
-  BetRecommendation,
+  BetRecommendationFull,
   calculateFullKellyBet,
   calculateFullKellyBetGeneric,
   calculateNaiveKellyBet,
@@ -50,13 +50,11 @@ export default function Home() {
 
   const [marketProb, setMarketProb] = useState(0.5);
   const [user, setUser] = useState<User | undefined>(undefined);
-  const [kellyBet, setKellyBet] = useState<BetRecommendation>({
+  const [kellyBet, setKellyBet] = useState<BetRecommendationFull>({
     amount: 0,
     outcome: "YES",
-  });
-  const [kellyBetGeneric, setKellyBetGeneric] = useState<BetRecommendation>({
-    amount: 0,
-    outcome: "YES",
+    shares: 0,
+    pAfter: 0.5,
   });
 
   useEffect(() => {
@@ -64,12 +62,6 @@ export default function Home() {
 
     const fetchMarketProb = async (slug: string) => {
       const marketProb = await getMarketProb(slug);
-      const fullKellyBet = await calculateFullKellyBet({
-        estimatedProb: probabilityInput,
-        deferenceFactor: kellyFractionInput,
-        marketSlug: slug,
-        bankroll: user?.balance ?? 1000,
-      });
       const fullKellyBetGeneric = await calculateFullKellyBetGeneric({
         estimatedProb: probabilityInput,
         deferenceFactor: kellyFractionInput,
@@ -78,8 +70,7 @@ export default function Home() {
       });
       if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
 
-      setKellyBet(fullKellyBet);
-      setKellyBetGeneric(fullKellyBetGeneric);
+      setKellyBet(fullKellyBetGeneric);
       setMarketProb(marketProb);
     };
     fetchMarketProb(marketInput);
@@ -209,32 +200,6 @@ export default function Home() {
           </div>
           <div>
             <p>New probability: {kellyBet.pAfter}</p>
-          </div>
-          <InputField
-            label="Full kelly bet (generic):"
-            id="kellyBet"
-            type="number"
-            step="0.01"
-            readOnly
-            value={kellyBetGeneric.amount}
-            decimalPlaces={0}
-            onChange={() => {}}
-          />
-          <div>
-            <p>Shares (generic): {kellyBetGeneric.shares}</p>
-          </div>
-          <div>
-            <p>
-              Implied market probability (generic):{" "}
-              {getEffectiveProbability({
-                outcomeShares: kellyBetGeneric.shares,
-                betAmount: kellyBetGeneric.amount,
-                outcome: kellyBetGeneric.outcome,
-              })}
-            </p>
-          </div>
-          <div>
-            <p>New probability (generic): {kellyBetGeneric.pAfter}</p>
           </div>
           {/* DEBUG SECTION */}
           <div>
