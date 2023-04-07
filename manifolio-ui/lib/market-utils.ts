@@ -3,6 +3,7 @@ import { getManifoldApi } from "@/lib/manifold-api";
 import { Bet, FullMarket } from "./vendor/manifold-sdk";
 import { assertDefined } from "./strict";
 
+// TODO split this into several files
 const cache: Record<string, CachedMarket> = {};
 
 export type CpmmState = {
@@ -179,7 +180,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
     console.log("bets", bets);
     console.log("market.market", market.market);
     console.log("market.balanceByUserId", market.balanceByUserId);
-    return;
+    return { newP: 0, newShares: 0 };
   }
 
   const unfilledBets = bets.filter(
@@ -187,7 +188,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
   );
   const balanceByUserId = market.balanceByUserId;
 
-  const { newBet } = getBinaryCpmmBetInfo(
+  const { newPool, newP, newBet } = getBinaryCpmmBetInfo(
     outcome,
     betAmount,
     market.market,
@@ -196,8 +197,8 @@ export const getBinaryCpmmBetInfoWrapper = async (
     balanceByUserId
   );
 
-  const newBetShares = newBet.shares;
-  return newBetShares;
+  const newShares = newBet.shares;
+  return { probAfter: getCpmmProbability(newPool, newP), newShares };
 };
 
 // BEGIN hacky shit
