@@ -2,7 +2,6 @@ import { InputField } from "@/components/InputField";
 import {
   BetRecommendationFull,
   calculateFullKellyBet,
-  calculateFullKellyBetGeneric,
   calculateNaiveKellyBet,
   getEffectiveProbability,
 } from "@/lib/calculate";
@@ -62,7 +61,7 @@ export default function Home() {
 
     const fetchMarketProb = async (slug: string) => {
       const marketProb = await getMarketProb(slug);
-      const fullKellyBetGeneric = await calculateFullKellyBetGeneric({
+      const fullKellyBetGeneric = await calculateFullKellyBet({
         estimatedProb: probabilityInput,
         deferenceFactor: kellyFractionInput,
         marketSlug: slug,
