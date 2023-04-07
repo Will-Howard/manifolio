@@ -1,6 +1,7 @@
 import { sortBy, sumBy, union } from "lodash";
 import { getManifoldApi } from "@/lib/manifold-api";
 import { Bet, FullMarket } from "./vendor/manifold-sdk";
+import { assertDefined } from "./strict";
 
 const cache: Record<string, CachedMarket> = {};
 
@@ -186,7 +187,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
   );
   const balanceByUserId = market.balanceByUserId;
 
-  const { newPool, newP, newBet } = getBinaryCpmmBetInfo(
+  const { newBet } = getBinaryCpmmBetInfo(
     outcome,
     betAmount,
     market.market,
@@ -194,7 +195,6 @@ export const getBinaryCpmmBetInfoWrapper = async (
     unfilledBets as LimitBet[], // TODO better type checking
     balanceByUserId
   );
-  // console.log("newBet", newBet);
 
   const newBetShares = newBet.shares;
   return newBetShares;
@@ -208,10 +208,12 @@ export type CandidateBet<T extends Bet = Bet> = Omit<
 >;
 
 export const removeUndefinedProps = <T extends object>(obj: T): T => {
-  const newObj: any = {};
+  const newObj = {} as T;
 
-  for (const key of Object.keys(obj)) {
-    if ((obj as any)[key] !== undefined) newObj[key] = (obj as any)[key];
+  for (const key of Object.keys(obj) as Array<keyof T>) {
+    if (obj[key] !== undefined) {
+      newObj[key] = obj[key];
+    }
   }
 
   return newObj;
@@ -507,18 +509,18 @@ const computeFill = (
   return { maker, taker };
 };
 
-export const addObjects = <T extends { [key: string]: number }>(
-  obj1: T,
-  obj2: T
+export const addObjects = <K extends string>(
+  obj1: Record<K, number>,
+  obj2: Record<K, number>
 ) => {
   const keys = union(Object.keys(obj1), Object.keys(obj2));
-  const newObj = {} as any;
+  const newObj: Record<K, number> = {} as Record<K, number>;
 
-  for (const key of keys) {
+  for (const key of keys as Array<K>) {
     newObj[key] = (obj1[key] ?? 0) + (obj2[key] ?? 0);
   }
 
-  return newObj as T;
+  return newObj;
 };
 
 export const computeFills = (
@@ -604,6 +606,8 @@ const getBinaryCpmmBetInfo = (
   balanceByUserId: { [userId: string]: number }
 ) => {
   const { pool, p } = contract;
+  if (!assertDefined(p)) throw new Error("p is undefined");
+
   const { takers, makers, cpmmState, totalFees, ordersToCancel } = computeFills(
     outcome,
     betAmount,
@@ -612,7 +616,7 @@ const getBinaryCpmmBetInfo = (
     unfilledBets,
     balanceByUserId
   );
-  const probBefore = getCpmmProbability(contract.pool, contract.p);
+  const probBefore = getCpmmProbability(contract.pool, p);
   const probAfter = getCpmmProbability(cpmmState.pool, cpmmState.p);
 
   const takerAmount = sumBy(takers, "amount");

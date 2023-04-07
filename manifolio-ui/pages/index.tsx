@@ -8,6 +8,7 @@ import { createUseStyles } from "react-jss";
 
 const COLUMN_MAX_WIDTH = "640px";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const useStyles = createUseStyles((theme: any) => ({
   main: {
     minHeight: "100vh",
@@ -50,12 +51,12 @@ async function calculateFullKellyBet({
   estimatedProb,
   deferenceFactor,
   marketSlug,
-  user,
+  bankroll,
 }: {
   estimatedProb: number;
   deferenceFactor: number;
   marketSlug: string;
-  user: User;
+  bankroll: number;
 }) {
   const startingMarketProb = await getMarketProb(marketSlug);
   if (!startingMarketProb) {
@@ -68,7 +69,7 @@ async function calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
   });
-  const naiveKellyBet = naiveKellyFraction * user.balance;
+  const naiveKellyBet = naiveKellyFraction * bankroll;
 
   let lowerBound = 0;
   let upperBound = naiveKellyBet;
@@ -89,7 +90,7 @@ async function calculateFullKellyBet({
     const effectiveProb = betEstimate / newShares;
 
     const newKellyBet =
-      user.balance *
+      bankroll *
       calculateNaiveKellyFraction({
         marketProb: effectiveProb,
         estimatedProb,
@@ -132,7 +133,7 @@ export default function Home() {
         estimatedProb: probabilityInput,
         deferenceFactor: kellyFractionInput,
         marketSlug: slug,
-        user: user!,
+        bankroll: user?.balance ?? 1000,
       });
       if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
 
@@ -227,7 +228,8 @@ export default function Home() {
             step="0.01"
             readOnly
             value={naiveKellyBet}
-            onChange={(e) => {}}
+            decimalPlaces={0}
+            onChange={() => {}}
           />
           <InputField
             label="Full kelly bet:"
@@ -236,7 +238,8 @@ export default function Home() {
             step="0.01"
             readOnly
             value={kellyBet}
-            onChange={(e) => {}}
+            decimalPlaces={0}
+            onChange={() => {}}
           />
           {/* DEBUG SECTION */}
           <div>
