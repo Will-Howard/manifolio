@@ -52,8 +52,8 @@ class CachedMarket {
   public market: FullMarket | null;
   private bets: Bet[] | null;
   public balanceByUserId: Record<string, number> | null;
-  private marketPromise: Promise<FullMarket | undefined>;
-  private betsPromise: Promise<Bet[] | undefined>;
+  public marketPromise: Promise<FullMarket | undefined>;
+  public betsPromise: Promise<Bet[] | undefined>;
 
   constructor(slug: string) {
     this.slug = slug;
@@ -87,7 +87,6 @@ class CachedMarket {
       const unfilledBets = this.bets.filter(
         (bet) => bet.isFilled === false && bet.isCancelled === false
       );
-      console.log("unfilledBets", unfilledBets);
       const userIds = unfilledBets.map((bet) => bet.userId);
 
       const users = await Promise.all(
@@ -127,7 +126,7 @@ const getMarketWithCache = async ({
   slug,
 }: {
   slug: string;
-}): Promise<CachedMarket | undefined> => {
+}): Promise<CachedMarket> => {
   if (cache[slug] && cache[slug].isCacheValid()) {
     return cache[slug];
   }
@@ -153,6 +152,7 @@ const getBetsWithCache = async ({
 
 export const getMarketProb = async (marketSlug: string) => {
   const market = await getMarketWithCache({ slug: marketSlug });
+  await market.marketPromise;
   return market?.market?.probability;
 };
 
@@ -160,21 +160,30 @@ export const getBinaryCpmmBetInfoWrapper = async (
   outcome: "YES" | "NO",
   betAmount: number,
   marketSlug: string
-  // limitProb: number | undefined,
-  // unfilledBets: LimitBet[],
-  // balanceByUserId: { [userId: string]: number }
 ) => {
   const market = await getMarketWithCache({ slug: marketSlug });
+  await market.marketPromise;
   const bets = await getBetsWithCache({ marketSlug }); // TODO maybe refactor to hide less abstraction here
+  // wait up to 5 seconds for balanceByUserId to be populated (TODO better way to do this)
+  for (let i = 0; i < 10; i++) {
+    if (market.balanceByUserId) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
   if (!market || !bets || !market.market || !market.balanceByUserId) {
     console.log("market or bets not found");
+    console.log("market", market);
+    console.log("bets", bets);
+    console.log("market.market", market.market);
+    console.log("market.balanceByUserId", market.balanceByUserId);
     return;
   }
 
   const unfilledBets = bets.filter(
     (bet) => bet.isFilled === false && bet.isCancelled === false
   );
-  console.log("unfilledBets", unfilledBets);
   const balanceByUserId = market.balanceByUserId;
 
   const { newPool, newP, newBet } = getBinaryCpmmBetInfo(
@@ -185,6 +194,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
     unfilledBets as LimitBet[], // TODO better type checking
     balanceByUserId
   );
+  // console.log("newBet", newBet);
 
   const newBetShares = newBet.shares;
   return newBetShares;
