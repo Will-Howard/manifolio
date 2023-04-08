@@ -4935,7 +4935,7 @@ trim-repeated@^2.0.0:
 
 ts-jest@^29.1.0:
   version "29.1.0"
-  resolved "https://registry.npmjs.org/ts-jest/-/ts-jest-29.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/ts-jest/-/ts-jest-29.1.0.tgz#4a9db4104a49b76d2b368ea775b6c9535c603891"
   integrity sha512-ZhNr7Z4PcYa+JjMl62ir+zPiNJfXJN6E8hSLnaUKhOgqcn8vb3e537cpkd0FuAfRK3sR1LSqM1MOhliXNgOFPA==
   dependencies:
     bs-logger "0.x"
