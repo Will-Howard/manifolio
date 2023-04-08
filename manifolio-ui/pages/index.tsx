@@ -24,6 +24,7 @@ const useStyles = createUseStyles((theme: any) => ({
     margin: "auto",
     maxWidth: COLUMN_MAX_WIDTH,
     padding: "48px 24px",
+    width: "fit-content",
     [theme.breakpoints.sm]: {
       padding: "36px 24px",
     },
@@ -47,7 +48,7 @@ export default function Home() {
   const [probabilityInput, setProbabilityInput] = useState(0.5);
   const [kellyFractionInput, setKellyFractionInput] = useState(0.5);
 
-  const [marketProb, setMarketProb] = useState(0.5);
+  const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
   const [user, setUser] = useState<User | undefined>(undefined);
   const [kellyBet, setKellyBet] = useState<BetRecommendationFull>({
     amount: 0,
@@ -55,6 +56,8 @@ export default function Home() {
     shares: 0,
     pAfter: 0.5,
   });
+
+  const bankroll = user?.balance ?? 1000;
 
   useEffect(() => {
     if (!marketInput || marketInput.length == 0) return;
@@ -65,7 +68,7 @@ export default function Home() {
         estimatedProb: probabilityInput,
         deferenceFactor: kellyFractionInput,
         marketSlug: slug,
-        bankroll: user?.balance ?? 1000,
+        bankroll,
       });
       if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
 
@@ -73,7 +76,7 @@ export default function Home() {
       setMarketProb(marketProb);
     };
     fetchMarketProb(marketInput);
-  }, [kellyFractionInput, marketInput, probabilityInput, user]);
+  }, [bankroll, kellyFractionInput, marketInput, probabilityInput, user]);
 
   // Get the user
   useEffect(() => {
@@ -91,10 +94,9 @@ export default function Home() {
     fetchUser(usernameInput);
   }, [usernameInput]);
 
-  const bankroll = user?.balance ?? 1000;
   const { amount: naiveKellyBet, outcome: naiveKellyOutcome } =
     calculateNaiveKellyBet({
-      marketProb: marketProb,
+      marketProb: marketProb ?? probabilityInput,
       estimatedProb: probabilityInput,
       deferenceFactor: kellyFractionInput,
       bankroll,
@@ -124,6 +126,11 @@ export default function Home() {
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
           />
+          {bankroll !== undefined && (
+            <div>
+              <p>Bankroll: {bankroll.toFixed(0)}</p>
+            </div>
+          )}
           <InputField
             label="Market slug or url:"
             id="marketInput"
@@ -132,6 +139,11 @@ export default function Home() {
             value={marketInput}
             onChange={(e) => setMarketInput(e.target.value)}
           />
+          {marketProb !== undefined && (
+            <div>
+              <p>Market probability: {marketProb}</p>
+            </div>
+          )}
           <InputField
             label="True probability estimate (%):"
             id="probabilityInput"
@@ -154,9 +166,6 @@ export default function Home() {
             value={kellyFractionInput}
             onChange={(e) => setKellyFractionInput(parseFloat(e.target.value))}
           />
-          <div>
-            <p>RESULTS</p>
-          </div>
           <div>
             <p>
               Outcome:{" "}
@@ -199,16 +208,6 @@ export default function Home() {
           </div>
           <div>
             <p>New probability: {kellyBet.pAfter}</p>
-          </div>
-          {/* DEBUG SECTION */}
-          <div>
-            <p>DEBUG</p>
-          </div>
-          <div>
-            <p>Market prob: {marketProb}</p>
-          </div>
-          <div>
-            <p>Bankroll: {bankroll}</p>
           </div>
         </div>
       </main>

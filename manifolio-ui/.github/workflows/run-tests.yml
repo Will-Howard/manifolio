@@ -1,0 +1,24 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 19
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Run tests
+        run: npm test
