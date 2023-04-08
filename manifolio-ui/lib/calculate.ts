@@ -18,7 +18,19 @@ export type BetRecommendationFull = BetRecommendation & {
   pAfter: number;
 };
 
-type OddsType = "decimalOdds" | "englishOdds" | "marketProbability";
+type OddsType = "decimalOdds" | "englishOdds" | "impliedProbability";
+
+/**
+ * Convert between different formulations of betting odds, which are each useful for neatly
+ * formulating different equations
+ *
+ * The three types of odds are:
+ * - "decimalOdds": the normal odds you see in most places, e.g. decimal odds of 2.5 means
+ * you get 2.5x your stake back INCLUDING your stake
+ * - "englishOdds": decimal odds minus 1, e.g. english odds of 2.5 means you get 2.5x your
+ * stake back PLUS your stake (so 3.5x in total)
+ * - "impliedProbability": the probability implied by the odds
+ */
 export function convertOdds({
   from,
   to,
@@ -38,7 +50,7 @@ export function convertOdds({
         return value;
       case "englishOdds":
         return value + 1;
-      case "marketProbability":
+      case "impliedProbability":
         return 1 / value;
       default:
         throw new Error(`Invalid 'from' value: ${from}`);
@@ -51,7 +63,7 @@ export function convertOdds({
         return decimalOdds;
       case "englishOdds":
         return decimalOdds - 1;
-      case "marketProbability":
+      case "impliedProbability":
         return 1 / decimalOdds;
       default:
         throw new Error(`Invalid 'to' value: ${to}`);
@@ -59,6 +71,14 @@ export function convertOdds({
   })();
 }
 
+/**
+ * Calculate the result of the naive Kelly formula: f = k * (p - p_market) / (1 - p_market)
+ *
+ * @param marketProb The implied probability of the market
+ * @param estimatedProb Your estimated probability of the outcome
+ * @param deferenceFactor The deference factor k scales down the fraction to bet. A value of 0.5
+ * is equivalent to saying "There is a 50% chance that I'm right, and a 50% chance the market is right"
+ */
 export function calculateNaiveKellyFraction({
   marketProb,
   estimatedProb,
@@ -77,6 +97,9 @@ export function calculateNaiveKellyFraction({
   };
 }
 
+/**
+ * Multiply the naive Kelly fraction by the bankroll to get the amount to bet
+ */
 export function calculateNaiveKellyBet({
   bankroll,
   ...fractionOnlyProps
@@ -88,6 +111,10 @@ export function calculateNaiveKellyBet({
   };
 }
 
+/**
+ * Gives the "average probability" you are betting at. This quantity is actually not that
+ * meaningful mathematically
+ */
 export function getEffectiveProbability({
   outcomeShares,
   betAmount,
@@ -104,6 +131,9 @@ export function getEffectiveProbability({
 
 type FunctionType = (input: number) => Promise<number>;
 
+/**
+ * Differentiate a function numerically
+ */
 async function D(f: FunctionType, x: number, h = 1e-6): Promise<number> {
   const fPlus = await f(x + h);
   const fMinus = await f(x - h);
@@ -111,6 +141,9 @@ async function D(f: FunctionType, x: number, h = 1e-6): Promise<number> {
   return (fPlus - fMinus) / (2 * h);
 }
 
+/**
+ * Solve equation of the form f(x) = x
+ */
 async function solveEquation(
   f: FunctionType,
   lowerBound: number,
@@ -138,6 +171,10 @@ async function solveEquation(
   return (lowerBound + upperBound) / 2;
 }
 
+/**
+ * Calculate the Kelly optimal bet, accounting for market liquidity. Assume a fixed bankroll
+ * and a portfolio of only one bet
+ */
 export async function calculateFullKellyBet({
   estimatedProb,
   deferenceFactor,
@@ -194,29 +231,6 @@ export async function calculateFullKellyBet({
     const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
 
     const newBetEstimate = f * bankroll;
-    // log everything on one line
-    // logger.info(
-    //   "betEstimate",
-    //   betEstimate,
-    //   "englishOddsEstimate",
-    //   englishOddsEstimate,
-    //   "englishOddsDerivative",
-    //   englishOddsDerivative,
-    //   "p",
-    //   pYes,
-    //   "q",
-    //   qYes,
-    //   "A",
-    //   A,
-    //   "B",
-    //   B,
-    //   "C",
-    //   C,
-    //   "outcome",
-    //   outcome,
-    //   "newBetEstimate",
-    //   newBetEstimate
-    // );
     return newBetEstimate;
   };
 

@@ -4,7 +4,6 @@ import { Bet, FullMarket } from "./vendor/manifold-sdk";
 import { assertDefined } from "./strict";
 import logger from "@/logger";
 
-// TODO split this into several files
 const cache: Record<string, CachedMarket> = {};
 
 export type CpmmState = {
@@ -202,7 +201,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
   return { probAfter: getCpmmProbability(newPool, newP), newShares };
 };
 
-// BEGIN hacky shit
+// BEGIN hacky shit, everything below here was taken from the manifold codebase
 
 export type CandidateBet<T extends Bet = Bet> = Omit<
   T,
