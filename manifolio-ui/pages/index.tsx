@@ -6,7 +6,7 @@ import {
   getEffectiveProbability,
 } from "@/lib/calculate";
 import { getManifoldApi } from "@/lib/manifold-api";
-import { getMarketProb } from "@/lib/market-utils";
+import { getMarket } from "@/lib/market-utils";
 import { User } from "@/lib/vendor/manifold-sdk";
 import Head from "next/head";
 import { useEffect, useState } from "react";
@@ -63,7 +63,8 @@ export default function Home() {
     if (!marketInput || marketInput.length == 0) return;
 
     const fetchMarketProb = async (slug: string) => {
-      const marketProb = await getMarketProb(slug);
+      const market = await getMarket({ slug });
+      const marketProb = (await market.getMarket())?.probability;
       const fullKellyBetGeneric = await calculateFullKellyBet({
         estimatedProb: probabilityInput,
         deferenceFactor: kellyFractionInput,
@@ -141,7 +142,7 @@ export default function Home() {
           />
           {marketProb !== undefined && (
             <div>
-              <p>Market probability: {marketProb}</p>
+              <p>Market probability: {(marketProb * 100).toFixed(1)}%</p>
             </div>
           )}
           <InputField
@@ -194,20 +195,25 @@ export default function Home() {
             onChange={() => {}}
           />
           <div>
-            <p>Shares: {kellyBet.shares}</p>
+            <p>
+              {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
+            </p>
           </div>
           <div>
             <p>
               Implied market probability:{" "}
-              {getEffectiveProbability({
-                outcomeShares: kellyBet.shares,
-                betAmount: kellyBet.amount,
-                outcome: kellyBet.outcome,
-              })}
+              {(
+                getEffectiveProbability({
+                  outcomeShares: kellyBet.shares,
+                  betAmount: kellyBet.amount,
+                  outcome: kellyBet.outcome,
+                }) * 100
+              ).toFixed(1)}
+              %
             </p>
           </div>
           <div>
-            <p>New probability: {kellyBet.pAfter}</p>
+            <p>New probability: {(kellyBet.pAfter * 100).toFixed(1)}%</p>
           </div>
         </div>
       </main>
