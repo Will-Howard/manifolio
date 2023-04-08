@@ -1,3 +1,4 @@
+import logger from "@/logger";
 import { getBinaryCpmmBetInfoWrapper, getMarketProb } from "./market-utils";
 
 type NaiveKellyProps = {
@@ -6,9 +7,10 @@ type NaiveKellyProps = {
   deferenceFactor: number;
 };
 
+export type Outcome = "YES" | "NO";
 export type BetRecommendation = {
   amount: number;
-  outcome: "YES" | "NO";
+  outcome: Outcome;
 };
 
 export type BetRecommendationFull = BetRecommendation & {
@@ -16,11 +18,52 @@ export type BetRecommendationFull = BetRecommendation & {
   pAfter: number;
 };
 
+type OddsType = "decimalOdds" | "englishOdds" | "marketProbability";
+export function convertOdds({
+  from,
+  to,
+  value,
+}: {
+  from: OddsType;
+  to: OddsType;
+  value: number;
+}) {
+  if (from === to) {
+    return value;
+  }
+
+  const decimalOdds = (() => {
+    switch (from) {
+      case "decimalOdds":
+        return value;
+      case "englishOdds":
+        return value + 1;
+      case "marketProbability":
+        return 1 / value;
+      default:
+        throw new Error(`Invalid 'from' value: ${from}`);
+    }
+  })();
+
+  return (() => {
+    switch (to) {
+      case "decimalOdds":
+        return decimalOdds;
+      case "englishOdds":
+        return decimalOdds - 1;
+      case "marketProbability":
+        return 1 / decimalOdds;
+      default:
+        throw new Error(`Invalid 'to' value: ${to}`);
+    }
+  })();
+}
+
 export function calculateNaiveKellyFraction({
   marketProb,
   estimatedProb,
   deferenceFactor,
-}: NaiveKellyProps): { fraction: number; outcome: "YES" | "NO" } {
+}: NaiveKellyProps): { fraction: number; outcome: Outcome } {
   const outcome = estimatedProb > marketProb ? "YES" : "NO";
   // kellyFraction * ((p - p_market) / (1 - p_market))
   const fraction =
@@ -52,14 +95,13 @@ export function getEffectiveProbability({
 }: {
   outcomeShares: number;
   betAmount: number;
-  outcome: "YES" | "NO";
+  outcome: Outcome;
 }) {
   return outcome === "YES"
     ? betAmount / outcomeShares
     : 1 - betAmount / outcomeShares;
 }
 
-// reimplement in general equation solver
 type FunctionType = (input: number) => Promise<number>;
 
 async function D(f: FunctionType, x: number, h = 1e-6): Promise<number> {
@@ -78,17 +120,6 @@ async function solveEquation(
 ): Promise<number> {
   for (let i = 0; i < iterations; i++) {
     const mid = (lowerBound + upperBound) / 2;
-    console.log(
-      "Iteration: ",
-      i,
-      "Mid: ",
-      mid,
-      "Lower: ",
-      lowerBound,
-      "Upper: ",
-      upperBound,
-      ""
-    );
     const fMid = await f(mid);
 
     if (Math.abs(mid - fMid) < tolerance) {
@@ -120,7 +151,7 @@ export async function calculateFullKellyBet({
 }): Promise<BetRecommendation & { shares: number; pAfter: number }> {
   const startingMarketProb = await getMarketProb(marketSlug);
   if (!startingMarketProb) {
-    console.log("Could not get market prob");
+    logger.info("Could not get market prob");
     return { amount: 0, outcome: "YES", shares: 0, pAfter: 0 };
   }
   const { amount: naiveKellyAmount, outcome } = calculateNaiveKellyBet({
@@ -164,28 +195,28 @@ export async function calculateFullKellyBet({
 
     const newBetEstimate = f * bankroll;
     // log everything on one line
-    console.log(
-      "betEstimate",
-      betEstimate,
-      "englishOddsEstimate",
-      englishOddsEstimate,
-      "englishOddsDerivative",
-      englishOddsDerivative,
-      "p",
-      pYes,
-      "q",
-      qYes,
-      "A",
-      A,
-      "B",
-      B,
-      "C",
-      C,
-      "outcome",
-      outcome,
-      "newBetEstimate",
-      newBetEstimate
-    );
+    // logger.info(
+    //   "betEstimate",
+    //   betEstimate,
+    //   "englishOddsEstimate",
+    //   englishOddsEstimate,
+    //   "englishOddsDerivative",
+    //   englishOddsDerivative,
+    //   "p",
+    //   pYes,
+    //   "q",
+    //   qYes,
+    //   "A",
+    //   A,
+    //   "B",
+    //   B,
+    //   "C",
+    //   C,
+    //   "outcome",
+    //   outcome,
+    //   "newBetEstimate",
+    //   newBetEstimate
+    // );
     return newBetEstimate;
   };
 

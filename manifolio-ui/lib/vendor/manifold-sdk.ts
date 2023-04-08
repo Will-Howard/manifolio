@@ -3,6 +3,8 @@
  * node-fetch
  */
 
+import logger from "@/logger";
+
 const BASE_URL = (() => {
   return "https://manifold.markets";
 })();
@@ -32,7 +34,7 @@ const isEmpty = (obj: Record<string, unknown>) => Object.keys(obj).length === 0;
 const log = (message: string) => {
   if (process.env.NODE_ENV === "production") return;
 
-  console.log(message);
+  logger.info(message);
 };
 
 const logError = (message: Error) => {

@@ -2,6 +2,7 @@ import { sortBy, sumBy, union } from "lodash";
 import { getManifoldApi } from "@/lib/manifold-api";
 import { Bet, FullMarket } from "./vendor/manifold-sdk";
 import { assertDefined } from "./strict";
+import logger from "@/logger";
 
 // TODO split this into several files
 const cache: Record<string, CachedMarket> = {};
@@ -175,11 +176,11 @@ export const getBinaryCpmmBetInfoWrapper = async (
   }
 
   if (!market || !bets || !market.market || !market.balanceByUserId) {
-    console.log("market or bets not found");
-    console.log("market", market);
-    console.log("bets", bets);
-    console.log("market.market", market.market);
-    console.log("market.balanceByUserId", market.balanceByUserId);
+    logger.info("market or bets not found");
+    logger.info("market", market);
+    logger.info("bets", bets);
+    logger.info("market.market", market.market);
+    logger.info("market.balanceByUserId", market.balanceByUserId);
     return { newP: 0, newShares: 0 };
   }
 
