@@ -18,7 +18,11 @@ jobs:
           node-version: 19
 
       - name: Install dependencies
-        run: yarn install
+        run: |
+          cd manifolio-ui
+          yarn install
 
       - name: Run tests
-        run: yarn test
+        run: |
+          cd manifolio-ui
+          yarn test
