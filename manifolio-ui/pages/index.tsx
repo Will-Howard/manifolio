@@ -45,7 +45,7 @@ export default function Home() {
     "will-i-decide-that-there-is-a-bette"
   );
   const [probabilityInput, setProbabilityInput] = useState(0.5);
-  const [kellyFractionInput, setKellyFractionInput] = useState(0.5);
+  const [deferenceFactor, setDeferenceFactor] = useState(0.5);
   const [useBalance, setUseBalance] = useState(false);
 
   const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
@@ -72,7 +72,7 @@ export default function Home() {
       const marketProb = (await market.getMarket())?.probability;
       const fullKellyBetGeneric = await calculateFullKellyBet({
         estimatedProb: probabilityInput,
-        deferenceFactor: kellyFractionInput,
+        deferenceFactor,
         marketSlug: slug,
         bankroll,
       });
@@ -83,7 +83,7 @@ export default function Home() {
       setMarketProb(marketProb);
     };
     fetchMarketProb(parsedSlug);
-  }, [bankroll, kellyFractionInput, marketInput, probabilityInput, user]);
+  }, [bankroll, deferenceFactor, marketInput, probabilityInput, user]);
 
   // Get the user
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function Home() {
     calculateNaiveKellyBet({
       marketProb: marketProb ?? probabilityInput,
       estimatedProb: probabilityInput,
-      deferenceFactor: kellyFractionInput,
+      deferenceFactor: deferenceFactor,
       bankroll,
     });
 
@@ -143,7 +143,7 @@ export default function Home() {
                   checked={useBalance}
                   onClick={() => setUseBalance(true)}
                 />
-                <label htmlFor="balance">Bankroll: {bankroll.toFixed(0)}</label>
+                <label htmlFor="balance">Balance: {balance.toFixed(0)}</label>
               </div>
               <div>
                 <input
@@ -189,49 +189,34 @@ export default function Home() {
             }
           />
           <InputField
-            label="Kelly fraction:"
+            label="Deference factor (lower is more risk averse):"
             id="kellyFractionInput"
             type="number"
             step="0.01"
             min="0"
             max="1"
-            value={kellyFractionInput}
-            onChange={(e) => setKellyFractionInput(parseFloat(e.target.value))}
+            value={deferenceFactor}
+            onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
           />
+          <br />
+          {naiveKellyOutcome !== kellyBet.outcome && (
+            <div>
+              <p>ERROR</p>
+            </div>
+          )}
           <div>
             <p>
-              Outcome:{" "}
-              {naiveKellyOutcome === kellyBet.outcome
-                ? naiveKellyOutcome
-                : "ERROR"}
+              Kelly optimal bet: M{kellyBet.amount.toFixed(0)} on{" "}
+              {kellyBet.outcome}
             </p>
           </div>
-          <InputField
-            label="Naive Kelly bet:"
-            id="naiveKellyBet"
-            type="number"
-            readOnly
-            value={naiveKellyBet}
-            decimalPlaces={0}
-            onChange={() => {}}
-          />
-          <InputField
-            label="Full kelly bet:"
-            id="kellyBet"
-            type="number"
-            step="0.01"
-            readOnly
-            value={kellyBet.amount}
-            decimalPlaces={0}
-            onChange={() => {}}
-          />
           <div>
             <p>
               {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
             </p>
           </div>
           <div>
-            <p>New probability: {(kellyBet.pAfter * 100).toFixed(1)}%</p>
+            <p>Probability after bet: {(kellyBet.pAfter * 100).toFixed(1)}%</p>
           </div>
         </div>
       </main>
