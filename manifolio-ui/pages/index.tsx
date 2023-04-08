@@ -3,7 +3,6 @@ import {
   BetRecommendationFull,
   calculateFullKellyBet,
   calculateNaiveKellyBet,
-  getEffectiveProbability,
 } from "@/lib/calculate";
 import { getManifoldApi } from "@/lib/manifold-api";
 import { getMarket } from "@/lib/market-utils";
@@ -47,6 +46,7 @@ export default function Home() {
   );
   const [probabilityInput, setProbabilityInput] = useState(0.5);
   const [kellyFractionInput, setKellyFractionInput] = useState(0.5);
+  const [useBalance, setUseBalance] = useState(false);
 
   const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -57,10 +57,15 @@ export default function Home() {
     pAfter: 0.5,
   });
 
-  const bankroll = user?.balance ?? 1000;
+  const balance = user?.balance ?? 1000;
+  const portfolioValue =
+    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
+
+  const bankroll = useBalance ? balance : portfolioValue;
 
   useEffect(() => {
     if (!marketInput || marketInput.length == 0) return;
+    const parsedSlug = marketInput.split("/").pop() || "";
 
     const fetchMarketProb = async (slug: string) => {
       const market = await getMarket({ slug });
@@ -71,17 +76,19 @@ export default function Home() {
         marketSlug: slug,
         bankroll,
       });
-      if (slug !== marketInput || !marketProb) return; // vague attempt to stop race conditions
+      // vague attempt to stop race conditions
+      if (slug !== parsedSlug || !marketProb) return;
 
       setKellyBet(fullKellyBetGeneric);
       setMarketProb(marketProb);
     };
-    fetchMarketProb(marketInput);
+    fetchMarketProb(parsedSlug);
   }, [bankroll, kellyFractionInput, marketInput, probabilityInput, user]);
 
   // Get the user
   useEffect(() => {
     if (!usernameInput || usernameInput.length == 0) return;
+    const parsedUsername = usernameInput.split("/").pop() || "";
 
     const fetchUser = async (username: string) => {
       try {
@@ -92,7 +99,7 @@ export default function Home() {
         return;
       }
     };
-    fetchUser(usernameInput);
+    fetchUser(parsedUsername);
   }, [usernameInput]);
 
   const { amount: naiveKellyBet, outcome: naiveKellyOutcome } =
@@ -127,6 +134,30 @@ export default function Home() {
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
           />
+          {balance !== undefined && portfolioValue !== undefined && (
+            <div className={classes.calculatorRow}>
+              <div>
+                <input
+                  type="radio"
+                  id="balance"
+                  checked={useBalance}
+                  onClick={() => setUseBalance(true)}
+                />
+                <label htmlFor="balance">Bankroll: {bankroll.toFixed(0)}</label>
+              </div>
+              <div>
+                <input
+                  type="radio"
+                  id="portfolioValue"
+                  checked={!useBalance}
+                  onClick={() => setUseBalance(false)}
+                />
+                <label htmlFor="portfolioValue">
+                  Portfolio value: {portfolioValue.toFixed(0)}
+                </label>
+              </div>
+            </div>
+          )}
           {bankroll !== undefined && (
             <div>
               <p>Bankroll: {bankroll.toFixed(0)}</p>
@@ -197,19 +228,6 @@ export default function Home() {
           <div>
             <p>
               {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
-            </p>
-          </div>
-          <div>
-            <p>
-              Implied market probability:{" "}
-              {(
-                getEffectiveProbability({
-                  outcomeShares: kellyBet.shares,
-                  betAmount: kellyBet.amount,
-                  outcome: kellyBet.outcome,
-                }) * 100
-              ).toFixed(1)}
-              %
             </p>
           </div>
           <div>

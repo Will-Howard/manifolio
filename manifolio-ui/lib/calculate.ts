@@ -111,24 +111,6 @@ export function calculateNaiveKellyBet({
   };
 }
 
-/**
- * Gives the "average probability" you are betting at. This quantity is actually not that
- * meaningful mathematically
- */
-export function getEffectiveProbability({
-  outcomeShares,
-  betAmount,
-  outcome,
-}: {
-  outcomeShares: number;
-  betAmount: number;
-  outcome: Outcome;
-}) {
-  return outcome === "YES"
-    ? betAmount / outcomeShares
-    : 1 - betAmount / outcomeShares;
-}
-
 type FunctionType = (input: number) => Promise<number>;
 
 /**
