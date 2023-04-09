@@ -51,10 +51,10 @@ export type LimitBet = Bet & LimitProps;
 class CachedMarket {
   private timestamp: number;
   private ttl: number = 1000 * 30; // 30 seconds
-  private slug: string;
-  private market: FullMarket | null;
-  private bets: Bet[] | null;
-  private balanceByUserId: Record<string, number> | null;
+  public slug: string;
+  private market: FullMarket | null = null;
+  private bets: Bet[] | null = null;
+  private balanceByUserId: Record<string, number> | null = null;
   public marketPromise: Promise<FullMarket | undefined>;
   public betsPromise: Promise<Bet[] | undefined>;
   public balanceByUserIdPromise: Promise<Record<string, number> | undefined>;
@@ -62,9 +62,6 @@ class CachedMarket {
   constructor(slug: string) {
     this.slug = slug;
     this.timestamp = Date.now();
-    this.market = null;
-    this.bets = null;
-    this.balanceByUserId = null;
 
     // Fetch market and bets when the instance is created
     this.marketPromise = this.fetchMarket();

@@ -1,16 +1,15 @@
 import { calculateNaiveKellyBet } from "@/lib/calculate";
 
 test("Naive Kelly formula gives expected result", () => {
-  expect(
-    calculateNaiveKellyBet({
-      marketProb: 0.5,
-      estimatedProb: 0.6,
-      deferenceFactor: 0.5,
-      bankroll: 100,
-    })
-  ).toMatchInlineSnapshot(`
+  const { amount, outcome } = calculateNaiveKellyBet({
+    marketProb: 0.5,
+    estimatedProb: 0.6,
+    deferenceFactor: 0.5,
+    bankroll: 100,
+  });
+  expect({ amount: amount.toPrecision(5), outcome }).toMatchInlineSnapshot(`
     {
-      "amount": 9.999999999999998,
+      "amount": "10.000",
       "outcome": "YES",
     }
   `);
