@@ -7,14 +7,14 @@ import {
 import { getManifoldApi } from "@/lib/manifold-api";
 import { getMarket } from "@/lib/market-utils";
 import { User } from "@/lib/vendor/manifold-sdk";
+import { Theme } from "@/styles/theme";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { createUseStyles } from "react-jss";
 
 const COLUMN_MAX_WIDTH = "640px";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const useStyles = createUseStyles((theme: any) => ({
+const useStyles = createUseStyles((theme: Theme) => ({
   main: {
     minHeight: "100vh",
     backgroundColor: theme.background,
