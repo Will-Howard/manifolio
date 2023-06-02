@@ -19,53 +19,6 @@ function convolveDistributions(
   return result;
 }
 
-// function approximateICDF(
-//   bets: BetModel[],
-//   targetProb: number,
-//   numBins: number,
-//   payoutLowerBound: number,
-//   payoutUpperBound: number
-// ): number {
-//   // Calculate the discretized probability distributions for each bet
-//   const betDistributions = bets.map((bet) => {
-//     const dist = new Map<number, number>();
-
-//     dist.set(0, 1 - bet.probability);
-//     dist.set(bet.payout, bet.probability);
-
-//     return dist;
-//   });
-
-//   // Calculate the combined distribution using convolutions
-//   let combinedDistribution = betDistributions[0];
-
-//   for (let i = 1; i < bets.length; i++) {
-//     combinedDistribution = convolveDistributions(
-//       combinedDistribution,
-//       betDistributions[i]
-//     );
-//   }
-
-//   // Calculate the cumulative probabilities
-//   const cumulativeProbabilities: { payout: number; prob: number }[] = [];
-//   let cumulativeProb = 0;
-
-//   for (const [payout, prob] of Array.from(combinedDistribution.entries())) {
-//     cumulativeProb += prob;
-//     cumulativeProbabilities.push({ payout, prob: cumulativeProb });
-//   }
-
-//   cumulativeProbabilities.sort((a, b) => a.payout - b.payout);
-
-//   // Find the payout corresponding to the target probability
-//   const index = binarySearch(
-//     cumulativeProbabilities.map((x) => x.prob),
-//     targetProb
-//   );
-
-//   return cumulativeProbabilities[index].payout;
-// }
-
 // TODO combine with other binary search function
 function binarySearch(arr: number[], target: number): number {
   let left = 0;
@@ -104,41 +57,6 @@ export type BetModel = {
   payout: number;
 };
 
-export function computeICDF(bets: BetModel[], targetProb: number): number {
-  const outcomes = cartesianProduct(
-    ...bets.map((bet) => [
-      { payout: 0, probability: 1 - bet.probability },
-      { payout: bet.payout, probability: bet.probability },
-    ])
-  );
-
-  const outcomeProbsAndPayouts = outcomes.map((outcome) => {
-    const probability = outcome.reduce(
-      (acc, betOutcome) => acc * betOutcome.probability,
-      1
-    );
-    const payout = outcome.reduce(
-      (acc, betOutcome) => acc + betOutcome.payout,
-      0
-    );
-    return { probability, payout };
-  });
-
-  outcomeProbsAndPayouts.sort((a, b) => a.payout - b.payout);
-
-  const cumulativeProbs = outcomeProbsAndPayouts.reduce<number[]>(
-    (acc, outcome) => {
-      const lastProb = acc.length > 0 ? acc[acc.length - 1] : 0;
-      acc.push(lastProb + outcome.probability);
-      return acc;
-    },
-    []
-  );
-
-  const index = binarySearch(cumulativeProbs, targetProb);
-  return outcomeProbsAndPayouts[index].payout;
-}
-
 function computePayoutDistributionCartesian(
   bets: BetModel[]
 ): Map<number, number> {
@@ -172,9 +90,7 @@ function computePayoutDistributionCartesian(
   return combinedDistribution;
 }
 
-export function computePayoutDistributionConv(
-  bets: BetModel[]
-): Map<number, number> {
+function computePayoutDistributionConv(bets: BetModel[]): Map<number, number> {
   let combinedDistribution = new Map<number, number>([[0, 1]]);
 
   for (const bet of bets) {
@@ -202,20 +118,111 @@ export function computePayoutDistribution(
   }
 }
 
-export function computeExpectedValue(dist: Map<number, number>): number {
+export function computeExpectedValue(pmf: Map<number, number>): number {
   let expectedValue = 0;
-  for (const [payout, prob] of Array.from(dist.entries())) {
+  for (const [payout, prob] of Array.from(pmf.entries())) {
     expectedValue += payout * prob;
   }
   return expectedValue;
 }
 
-// Example usage
-// const bets: Bet[] = [
-//   { probability: 0.5, payout: 2 },
-//   { probability: 0.4, payout: 3 },
-// ];
+function computeCumulativeDistributionCartesian(
+  bets: BetModel[]
+): Map<number, number> {
+  const outcomes = cartesianProduct(
+    ...bets.map((bet) => [
+      { payout: 0, probability: 1 - bet.probability },
+      { payout: bet.payout, probability: bet.probability },
+    ])
+  );
 
-// const targetProb = 0.6;
-// const icdfValue = computeICDF(bets, targetProb);
-// console.log(`ICDF(${targetProb}) = ${icdfValue}`);
+  const outcomeProbsAndPayouts = outcomes.map((outcome) => {
+    const probability = outcome.reduce(
+      (acc, betOutcome) => acc * betOutcome.probability,
+      1
+    );
+    const payout = outcome.reduce(
+      (acc, betOutcome) => acc + betOutcome.payout,
+      0
+    );
+    return { probability, payout };
+  });
+
+  outcomeProbsAndPayouts.sort((a, b) => a.payout - b.payout);
+
+  const cumulativeDistribution = new Map<number, number>();
+  let cumulativeProb = 0;
+  for (const outcome of outcomeProbsAndPayouts) {
+    cumulativeProb += outcome.probability;
+    cumulativeDistribution.set(outcome.payout, cumulativeProb);
+  }
+
+  return cumulativeDistribution;
+}
+
+// H(z) = sum over all PAYOUTS of the new bet F(z - payout) * f(payout)
+// There are only two possible outcomes for the new bet: 0 and payout
+// so this sum is H(z) = F(z) * (1 - p) + F(z - payout) * p
+// we then want to precompute all possible values of this
+// Given the current distinct values of F(z), the new distinct values are F(z) and F(z + payout)
+
+// I think I don't actually need the convolution version
+// function computeCumulativeDistributionConvolution(
+//   bets: BetModel[]
+// ): Map<number, number> {
+//   let cumulativeDistribution = new Map<number, number>();
+//   cumulativeDistribution.set(0, 1);
+
+//   for (const bet of bets) {
+//     const newCumulativeDistribution = new Map<number, number>();
+
+//     for (const [payout1, prob1] of Array.from(
+//       cumulativeDistribution.entries()
+//     )) {
+//       const combinedPayout1 = payout1 + bet.payout;
+//       const combinedProb1 = prob1 * bet.probability;
+
+//       newCumulativeDistribution.set(
+//         combinedPayout1,
+//         (newCumulativeDistribution.get(combinedPayout1) || 0) + combinedProb1
+//       );
+
+//       const combinedProb2 = prob1 * (1 - bet.probability);
+//       newCumulativeDistribution.set(
+//         payout1,
+//         (newCumulativeDistribution.get(payout1) || 0) + combinedProb2
+//       );
+//     }
+
+//     cumulativeDistribution = newCumulativeDistribution;
+//   }
+
+//   return cumulativeDistribution;
+// }
+
+export function computeCumulativeDistribution(
+  bets: BetModel[],
+  method: "convolution" | "cartesian" = "cartesian"
+): Map<number, number> {
+  if (method === "convolution") {
+    throw new Error("Not implemented");
+    // return computeCumulativeDistributionConvolution(bets);
+  } else {
+    return computeCumulativeDistributionCartesian(bets);
+  }
+}
+
+function sampleFromCumulativeDistribution(
+  cumulativeDistribution: Map<number, number>,
+  targetProb: number
+): number {
+  const sortedPayouts = Array.from(cumulativeDistribution.keys()).sort(
+    (a, b) => a - b
+  );
+  const cumulativeProbs = sortedPayouts.map(
+    (payout) => cumulativeDistribution.get(payout) || 0
+  );
+
+  const index = binarySearch(cumulativeProbs, targetProb);
+  return sortedPayouts[index];
+}

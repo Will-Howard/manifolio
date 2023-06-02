@@ -1,14 +1,14 @@
 import React, { ChangeEvent } from "react";
 import { createUseStyles } from "react-jss";
 
-const useStyles = createUseStyles(() => ({
+const useStyles = createUseStyles({
   calculatorRow: {
     marginBottom: "16px",
     "& input": {
       marginLeft: 8,
     },
   },
-}));
+});
 
 interface InputFieldProps {
   id: string;

@@ -1,8 +1,8 @@
 import {
   BetModel,
+  computeCumulativeDistribution,
   computeExpectedValue,
   computePayoutDistribution,
-  computePayoutDistributionConv,
 } from "../probability";
 
 function assertExpectedValueEqual({
@@ -84,6 +84,7 @@ describe("Tests for probability logic", () => {
       expectedValue: expectedValueCart,
       sampleCallback: () => {
         let totalPayout = 0;
+        // rejection sampling
         for (const bet of bets) {
           const randomValue = Math.random();
           if (randomValue <= bet.probability) {
@@ -93,5 +94,93 @@ describe("Tests for probability logic", () => {
         return totalPayout;
       },
     });
+  });
+});
+
+describe("Tests for probability logic", () => {
+  test("For small number of bets: combined cumulative distribution is the same using cartesian product and convolutions", () => {
+    // Test function
+    const bets: BetModel[] = [
+      { probability: 0.3, payout: 2 },
+      { probability: 0.5, payout: 3 },
+    ];
+
+    // Calculate the combined cumulative distribution
+    const cumDistCart = computeCumulativeDistribution(bets, "cartesian");
+    const cumDistConv = computeCumulativeDistribution(bets, "convolution");
+
+    // Compare the cumulative distributions
+    const sortedPayoutsCart = Array.from(cumDistCart.keys()).sort(
+      (a, b) => a - b
+    );
+    const sortedPayoutsConv = Array.from(cumDistConv.keys()).sort(
+      (a, b) => a - b
+    );
+
+    const sortedProbsCart = sortedPayoutsCart.map(
+      (payout) => cumDistCart.get(payout) || 0
+    );
+    const sortedProbsConv = sortedPayoutsConv.map(
+      (payout) => cumDistConv.get(payout) || 0
+    );
+
+    expect(sortedPayoutsCart).toEqual(sortedPayoutsConv);
+    expect(sortedProbsCart).toEqual(sortedProbsConv);
+  });
+});
+
+function computeExpectedValueFromICDF(
+  cumulativeDistribution: Map<number, number>
+): number {
+  const sortedPayouts = Array.from(cumulativeDistribution.keys()).sort(
+    (a, b) => a - b
+  );
+  const sortedProbs = sortedPayouts.map(
+    (payout) => cumulativeDistribution.get(payout) || 0
+  );
+
+  let expectedValue = 0;
+  for (let i = 1; i < sortedProbs.length; i++) {
+    const probDelta = sortedProbs[i] - sortedProbs[i - 1];
+    expectedValue += probDelta * sortedPayouts[i];
+  }
+
+  return expectedValue;
+}
+
+// pain
+describe("Tests for probability logic", () => {
+  test("For small number of bets: combined cumulative distribution ICDF integration and sampling gives the same expected value as PDF", () => {
+    // Test function
+    const bets: BetModel[] = [
+      { probability: 0.3, payout: 2 },
+      { probability: 0.5, payout: 3 },
+    ];
+
+    // Calculate the combined probability distribution
+    const payoutDistConv = computePayoutDistribution(bets, "convolution");
+    const expectedValuePDF = computeExpectedValue(payoutDistConv);
+
+    // Calculate the combined cumulative distribution
+    const cumDistConv = computeCumulativeDistribution(bets, "convolution");
+
+    // Calculate the expected value by integrating over the ICDF
+    const expectedValueICDF = computeExpectedValueFromICDF(cumDistConv);
+    expect(expectedValuePDF).toBeCloseTo(expectedValueICDF);
+
+    // Check that we get the same result by sampling
+    // const numSamples = 10000;
+    // let totalPayoutSampling = 0;
+
+    // for (let i = 0; i < numSamples; i++) {
+    //   const randomValue = Math.random();
+    //   totalPayoutSampling += sampleFromCumulativeDistribution(
+    //     cumDistConv,
+    //     randomValue
+    //   );
+    // }
+
+    // const expectedValueSampling = totalPayoutSampling / numSamples;
+    // expect(expectedValuePDF).toBeCloseTo(expectedValueSampling);
   });
 });
