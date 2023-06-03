@@ -150,7 +150,7 @@ class CachedMarket {
   }
 }
 
-export const getMarket = async ({
+export const fetchMarketCached = async ({
   slug,
 }: {
   slug: string;
@@ -169,7 +169,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
   betAmount: number,
   marketSlug: string
 ) => {
-  const market = await getMarket({ slug: marketSlug });
+  const market = await fetchMarketCached({ slug: marketSlug });
   const bets = await market.getBets(); // TODO maybe refactor to hide less abstraction here
   const balanceByUserId = await market.getBalanceByUserId();
 

@@ -1,11 +1,7 @@
 import { InputField } from "@/components/InputField";
-import {
-  BetRecommendationFull,
-  calculateFullKellyBet,
-  calculateNaiveKellyBet,
-} from "@/lib/calculate";
-import { getManifoldApi } from "@/lib/manifold-api";
-import { getMarket } from "@/lib/market-utils";
+import { BetRecommendationFull, calculateFullKellyBet } from "@/lib/calculate";
+import { fetchMarketCached } from "@/lib/market-utils";
+import { fetchUser } from "@/lib/user-utils";
 import { User } from "@/lib/vendor/manifold-sdk";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
@@ -36,41 +32,53 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
 }));
 
+const FALLBACK_BALANCE = 1000;
+
 export default function Home() {
   const classes = useStyles();
 
   /* User inputs */
-  const [usernameInput, setUsernameInput] = useState("WilliamHoward");
-  const [marketInput, setMarketInput] = useState(
+  // TODO these will eventually have autocomplete, they should be their own components
+  const [usernameInput, setUsernameInput] = useState<string>("WilliamHoward");
+  const [marketInput, setMarketInput] = useState<string>(
     "will-i-decide-that-there-is-a-bette"
   );
+
+  const [foundUser, setFoundUser] = useState<boolean>(false);
+  const [foundMarket, setFoundMarket] = useState<boolean>(false);
+
   const [probabilityInput, setProbabilityInput] = useState(0.5);
   const [deferenceFactor, setDeferenceFactor] = useState(0.5);
   const [useBalance, setUseBalance] = useState(false);
 
   const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
   const [user, setUser] = useState<User | undefined>(undefined);
-  const [kellyBet, setKellyBet] = useState<BetRecommendationFull>({
-    amount: 0,
-    outcome: "YES",
-    shares: 0,
-    pAfter: 0.5,
-  });
+  const [kellyBet, setKellyBet] = useState<BetRecommendationFull | undefined>(
+    undefined
+  );
 
-  const balance = user?.balance ?? 1000;
+  const balance = user?.balance ?? FALLBACK_BALANCE;
   const portfolioValue =
     (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
 
   const bankroll = useBalance ? balance : portfolioValue;
 
+  // TODO hide more of this handling in the lib code
   useEffect(() => {
     if (!marketInput || marketInput.length == 0) return;
     const parsedSlug = marketInput.split("/").pop() || "";
 
-    const fetchMarketProb = async (slug: string) => {
-      const market = await getMarket({ slug });
+    const tryFetchMarket = async (slug: string) => {
+      const market = await fetchMarketCached({ slug });
       const marketProb = (await market.getMarket())?.probability;
-      const fullKellyBetGeneric = await calculateFullKellyBet({
+
+      // If e.g. the slug is not valid, don't update anything
+      if (!marketProb) {
+        setFoundMarket(false);
+        return;
+      }
+
+      const kellyOptimalBet = await calculateFullKellyBet({
         estimatedProb: probabilityInput,
         deferenceFactor,
         marketSlug: slug,
@@ -79,10 +87,11 @@ export default function Home() {
       // vague attempt to stop race conditions
       if (slug !== parsedSlug || !marketProb) return;
 
-      setKellyBet(fullKellyBetGeneric);
+      setFoundMarket(true);
+      setKellyBet(kellyOptimalBet);
       setMarketProb(marketProb);
     };
-    fetchMarketProb(parsedSlug);
+    void tryFetchMarket(parsedSlug);
   }, [bankroll, deferenceFactor, marketInput, probabilityInput, user]);
 
   // Get the user
@@ -90,25 +99,21 @@ export default function Home() {
     if (!usernameInput || usernameInput.length == 0) return;
     const parsedUsername = usernameInput.split("/").pop() || "";
 
-    const fetchUser = async (username: string) => {
-      try {
-        const fetchedUser = await getManifoldApi().getUser({ username });
-        setUser(fetchedUser);
-      } catch (e) {
-        console.error(e);
+    const tryFetchUser = async (username: string) => {
+      const fetchedUser = await fetchUser(username);
+      if (!fetchedUser) {
+        setFoundUser(false);
         return;
       }
+
+      setFoundUser(true);
+      setUser(fetchedUser);
     };
-    fetchUser(parsedUsername);
+    tryFetchUser(parsedUsername);
   }, [usernameInput]);
 
-  const { amount: naiveKellyBet, outcome: naiveKellyOutcome } =
-    calculateNaiveKellyBet({
-      marketProb: marketProb ?? probabilityInput,
-      estimatedProb: probabilityInput,
-      deferenceFactor: deferenceFactor,
-      bankroll,
-    });
+  const naiveKellyOutcome =
+    probabilityInput > (marketProb ?? probabilityInput) ? "YES" : "NO";
 
   return (
     <>
@@ -176,6 +181,7 @@ export default function Home() {
               <p>Market probability: {(marketProb * 100).toFixed(1)}%</p>
             </div>
           )}
+          <br />
           <InputField
             label="True probability estimate (%):"
             id="probabilityInput"
@@ -199,25 +205,32 @@ export default function Home() {
             onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
           />
           <br />
-          {naiveKellyOutcome !== kellyBet.outcome && (
-            <div>
-              <p>ERROR</p>
-            </div>
+          {/* Results section */}
+          {kellyBet && (
+            <>
+              {naiveKellyOutcome !== kellyBet.outcome && (
+                <div>
+                  <p>ERROR</p>
+                </div>
+              )}
+              <div>
+                <p>
+                  Kelly optimal bet: M{kellyBet.amount.toFixed(0)} on{" "}
+                  {kellyBet.outcome}
+                </p>
+              </div>
+              <div>
+                <p>
+                  {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
+                </p>
+              </div>
+              <div>
+                <p>
+                  Probability after bet: {(kellyBet.pAfter * 100).toFixed(1)}%
+                </p>
+              </div>
+            </>
           )}
-          <div>
-            <p>
-              Kelly optimal bet: M{kellyBet.amount.toFixed(0)} on{" "}
-              {kellyBet.outcome}
-            </p>
-          </div>
-          <div>
-            <p>
-              {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
-            </p>
-          </div>
-          <div>
-            <p>Probability after bet: {(kellyBet.pAfter * 100).toFixed(1)}%</p>
-          </div>
         </div>
       </main>
     </>

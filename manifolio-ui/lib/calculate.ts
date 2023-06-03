@@ -1,5 +1,5 @@
 import logger from "@/logger";
-import { getBinaryCpmmBetInfoWrapper, getMarket } from "./market-utils";
+import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market-utils";
 
 type NaiveKellyProps = {
   marketProb: number;
@@ -168,7 +168,7 @@ export async function calculateFullKellyBet({
   marketSlug: string;
   bankroll: number;
 }): Promise<BetRecommendation & { shares: number; pAfter: number }> {
-  const market = await getMarket({ slug: marketSlug });
+  const market = await fetchMarketCached({ slug: marketSlug });
   const startingMarketProb = (await market.getMarket())?.probability;
   if (!startingMarketProb) {
     logger.info("Could not get market prob");

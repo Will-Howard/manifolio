@@ -25,7 +25,7 @@ export type Theme = {
   breakpoints: Breakpoints;
 };
 
-const theme: Theme = {
+export const theme: Theme = {
   background: "#f7f3ef",
   primary: "#002654",
   primaryLight: "#002674",
@@ -40,5 +40,3 @@ const theme: Theme = {
     xl: `@media screen and (max-width: ${xl}px)`,
   },
 };
-
-export default theme;
