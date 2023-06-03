@@ -138,6 +138,7 @@ export default function Home() {
             placeholder="e.g. @WilliamHoward or https://manifold.markets/WilliamHoward"
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
+            status={foundUser ? "success" : "error"}
           />
           {balance !== undefined && portfolioValue !== undefined && (
             <div className={classes.calculatorRow}>
@@ -175,6 +176,7 @@ export default function Home() {
             placeholder="e.g. will-scott-alexander-blog-about-sil or https://manifold.markets/xyz/will-scott-alexander-blog-about-sil"
             value={marketInput}
             onChange={(e) => setMarketInput(e.target.value)}
+            status={foundMarket ? "success" : "error"}
           />
           {marketProb !== undefined && (
             <div>

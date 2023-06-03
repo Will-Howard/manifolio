@@ -8,6 +8,12 @@ const useStyles = createUseStyles({
       marginLeft: 8,
     },
   },
+  inputError: {
+    border: "1px solid red",
+  },
+  inputSuccess: {
+    border: "1px solid green",
+  },
 });
 
 interface InputFieldProps {
@@ -23,6 +29,7 @@ interface InputFieldProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   decimalPlaces?: number;
   significantFigures?: number;
+  status?: "error" | "success" | undefined;
 }
 
 const applyRounding = (
@@ -62,6 +69,13 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
     ? applyRounding(value, props.decimalPlaces, props.significantFigures)
     : value;
 
+  const inputClass =
+    props.status === "error"
+      ? classes.inputError
+      : props.status === "success"
+      ? classes.inputSuccess
+      : "";
+
   return (
     <div className={classes.calculatorRow}>
       <label htmlFor={props.id}>{props.label}</label>
@@ -75,6 +89,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         placeholder={props.placeholder}
         readOnly={props.readOnly}
         onChange={handleInputChange}
+        className={inputClass}
       />
     </div>
   );
