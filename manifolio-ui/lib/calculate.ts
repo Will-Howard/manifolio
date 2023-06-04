@@ -1,5 +1,11 @@
 import logger from "@/logger";
 import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market-utils";
+import {
+  BetModel,
+  computeCumulativeDistribution,
+  computePayoutDistribution,
+  integrateOverPmf,
+} from "./probability";
 
 type NaiveKellyProps = {
   marketProb: number;
@@ -17,6 +23,9 @@ export type BetRecommendationFull = BetRecommendation & {
   shares: number;
   pAfter: number;
 };
+
+export type AsyncUnivariateFunction = (input: number) => Promise<number>;
+export type UnivariateFunction = (input: number) => number;
 
 type OddsType = "decimalOdds" | "englishOdds" | "impliedProbability";
 
@@ -111,12 +120,14 @@ export function calculateNaiveKellyBet({
   };
 }
 
-type FunctionType = (input: number) => Promise<number>;
-
 /**
  * Differentiate a function numerically
  */
-async function D(f: FunctionType, x: number, h = 1e-6): Promise<number> {
+async function D(
+  f: AsyncUnivariateFunction,
+  x: number,
+  h = 1e-3
+): Promise<number> {
   const fPlus = await f(x + h);
   const fMinus = await f(x - h);
 
@@ -124,33 +135,40 @@ async function D(f: FunctionType, x: number, h = 1e-6): Promise<number> {
 }
 
 /**
- * Solve equation of the form f(x) = x
+ * Solve equation of the form f(x) = 0 using Newton's method
  */
-async function solveEquation(
-  f: FunctionType,
+export async function findRoot(
+  f: AsyncUnivariateFunction,
   lowerBound: number,
   upperBound: number,
   iterations = 10,
   tolerance = 1e-6
 ): Promise<number> {
+  let x = (lowerBound + upperBound) / 2;
+
   for (let i = 0; i < iterations; i++) {
-    const mid = (lowerBound + upperBound) / 2;
-    const fMid = await f(mid);
+    const fx = await f(x);
+    const dfx = await D(f, x);
 
-    if (Math.abs(mid - fMid) < tolerance) {
-      // If the difference between mid and f(mid) is less than the tolerance, we found a solution.
-      return mid;
+    let xNext = x - fx / dfx;
+
+    // Check if xNext is within bounds
+    if (xNext < lowerBound || xNext > upperBound) {
+      // Option 2: Adjust xNext to be at the boundary
+      xNext = xNext < lowerBound ? lowerBound : upperBound;
     }
 
-    if (fMid > mid) {
-      lowerBound = mid;
-    } else {
-      upperBound = mid;
+    if (Math.abs(xNext - x) < tolerance) {
+      // If the difference between x and xNext is less than the tolerance, we found a solution.
+      console.log("Found root solution");
+      return xNext;
     }
+
+    x = xNext;
   }
 
-  // If the solution is not found within the given number of iterations, return the average of the final bounds.
-  return (lowerBound + upperBound) / 2;
+  // If the solution is not found within the given number of iterations, return the last estimate.
+  return x;
 }
 
 /**
@@ -203,22 +221,184 @@ export async function calculateFullKellyBet({
     const pWin = outcome === "YES" ? pYes : qYes;
     const qWin = 1 - pWin;
 
-    // solve equation Af^2 + Bf + C = 0 for _fraction_ f
-    const A = pWin * bankroll * englishOddsDerivative; // does seem to give the right answer
+    // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
+    const A = pWin * bankroll * englishOddsDerivative;
     const B = englishOddsEstimate - A;
     const C = -(pWin * englishOddsEstimate - qWin);
-    // solve, handling case where A = 0 separately
+
+    // Using this intermediate root finding is _much_ more numerically stable than finding the
+    // root of Af^2 + Bf + C = 0 directly for some reason
     const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
 
     const newBetEstimate = f * bankroll;
-    return newBetEstimate;
+
+    // This is the difference we want to be zero.
+    return newBetEstimate - betEstimate;
   };
 
-  const optimalBet = await solveEquation(
-    calcBetEstimate,
+  const optimalBet = await findRoot(calcBetEstimate, lowerBound, upperBound);
+
+  const { newShares: shares, probAfter: pAfter } =
+    await getBinaryCpmmBetInfoWrapper(outcome, optimalBet, marketSlug);
+
+  return {
+    amount: optimalBet,
+    outcome,
+    shares,
+    pAfter: pAfter ?? 0,
+  };
+}
+
+/**
+ * Calculate the Kelly optimal bet, accounting for market liquidity. Assume a fixed bankroll
+ * and a portfolio of only one bet
+ */
+export async function calculateFullKellyBetWithPortfolio({
+  estimatedProb,
+  deferenceFactor,
+  marketSlug,
+  balance,
+  portfolioValue,
+}: {
+  estimatedProb: number;
+  deferenceFactor: number;
+  marketSlug: string;
+  balance: number;
+  portfolioValue: number;
+}): Promise<BetRecommendation & { shares: number; pAfter: number }> {
+  // TODO use the actual user's portfolio
+  // upper bound is calculateFullKellyBet with portfolioValue
+  // lower bound is calculateFullKellyBet with balance
+
+  // TODO set up a fake portfolio (of BetModels) and implement solver
+  const illiquidEV = 1000;
+  const relativeIlliquidEV = illiquidEV / balance;
+  const bets: BetModel[] = [
+    { probability: 0.5, payout: relativeIlliquidEV * (1 / 0.5) },
+  ];
+  const illiquidPmf = computePayoutDistribution(bets, "cartesian");
+
+  // const illiquidEV = portfolioValue - balance;
+
+  const market = await fetchMarketCached({ slug: marketSlug });
+  const startingMarketProb = (await market.getMarket())?.probability;
+  if (!startingMarketProb) {
+    logger.info("Could not get market prob");
+    return { amount: 0, outcome: "YES", shares: 0, pAfter: 0 };
+  }
+  const { amount: naiveKellyAmount, outcome } = calculateNaiveKellyBet({
+    marketProb: startingMarketProb,
+    estimatedProb,
+    deferenceFactor,
+    bankroll: balance,
+  });
+
+  const lowerBound = 0;
+  const upperBound = naiveKellyAmount;
+
+  const englishOdds = async (betEstimate: number) => {
+    const { newShares } = await getBinaryCpmmBetInfoWrapper(
+      outcome,
+      betEstimate,
+      marketSlug
+    );
+    return (newShares - betEstimate) / betEstimate;
+  };
+  const dEVdBetSimple = async (betEstimate: number) => {
+    const englishOddsEstimate = await englishOdds(betEstimate);
+    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+
+    const pYes =
+      estimatedProb * deferenceFactor +
+      (1 - deferenceFactor) * startingMarketProb;
+    const qYes = 1 - pYes;
+    const pWin = outcome === "YES" ? pYes : qYes;
+    const qWin = 1 - pWin;
+
+    // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
+    const A = pWin * balance * englishOddsDerivative;
+    const B = englishOddsEstimate - A;
+    const C = -(pWin * englishOddsEstimate - qWin);
+
+    // Using this intermediate root finding is _much_ more numerically stable than finding the
+    // root of Af^2 + Bf + C = 0 directly for some reason
+    const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
+
+    const newBetEstimate = f * balance;
+
+    // This is the difference we want to be zero.
+    return newBetEstimate - betEstimate;
+  };
+  const dEVdBet = async (betEstimate: number) => {
+    const englishOddsEstimate = await englishOdds(betEstimate);
+    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+
+    const pYes =
+      estimatedProb * deferenceFactor +
+      (1 - deferenceFactor) * startingMarketProb;
+    const qYes = 1 - pYes;
+    const pWin = outcome === "YES" ? pYes : qYes;
+    const qWin = 1 - pWin;
+
+    const f = betEstimate / balance;
+
+    const integrand = (I: number) => {
+      const A =
+        (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
+      const B = -qWin / (1 + I - f);
+      const C =
+        (pWin * f * englishOddsDerivative * balance) /
+        (1 + I + f * englishOddsEstimate);
+
+      return A + B + C;
+    };
+    const integral = integrateOverPmf(integrand, illiquidPmf);
+
+    return integral;
+  };
+  const dEVdBetHigh = async (betEstimate: number) => {
+    const englishOddsEstimate = await englishOdds(betEstimate);
+    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+
+    const pYes =
+      estimatedProb * deferenceFactor +
+      (1 - deferenceFactor) * startingMarketProb;
+    const qYes = 1 - pYes;
+    const pWin = outcome === "YES" ? pYes : qYes;
+    const qWin = 1 - pWin;
+
+    const f = betEstimate / balance;
+    const I = relativeIlliquidEV;
+
+    const A = (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
+    const B = -qWin / (1 + I - f);
+    const C =
+      (pWin * f * englishOddsDerivative * balance) /
+      (1 + I + f * englishOddsEstimate);
+
+    return A + B + C;
+  };
+
+  const optimalBetInitial = await findRoot(
+    dEVdBetSimple,
     lowerBound,
     upperBound
   );
+  const optimalBet = await findRoot(
+    dEVdBet,
+    // TODO handle the numerical instability in a better way
+    optimalBetInitial * 0.5,
+    optimalBetInitial * 2
+  );
+  const optimalBetHigh = await findRoot(
+    dEVdBetHigh,
+    // TODO handle the numerical instability in a better way
+    optimalBetInitial * 0.5,
+    optimalBetInitial * 2
+  );
+
+  console.log({ optimalBetInitial, optimalBet, optimalBetHigh });
+
   // get the shares and pAfter
   const { newShares: shares, probAfter: pAfter } =
     await getBinaryCpmmBetInfoWrapper(outcome, optimalBet, marketSlug);

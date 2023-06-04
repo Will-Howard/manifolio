@@ -1,5 +1,9 @@
 import { InputField } from "@/components/InputField";
-import { BetRecommendationFull, calculateFullKellyBet } from "@/lib/calculate";
+import {
+  BetRecommendationFull,
+  calculateFullKellyBet,
+  calculateFullKellyBetWithPortfolio,
+} from "@/lib/calculate";
 import { fetchMarketCached } from "@/lib/market-utils";
 import { fetchUser } from "@/lib/user-utils";
 import { User } from "@/lib/vendor/manifold-sdk";
@@ -56,6 +60,9 @@ export default function Home() {
   const [kellyBet, setKellyBet] = useState<BetRecommendationFull | undefined>(
     undefined
   );
+  const [kellyBetWithPortfolio, setKellyBetWithPortfolio] = useState<
+    BetRecommendationFull | undefined
+  >(undefined);
 
   const balance = user?.balance ?? FALLBACK_BALANCE;
   const portfolioValue =
@@ -84,15 +91,33 @@ export default function Home() {
         marketSlug: slug,
         bankroll,
       });
+      const kellyWithPortfolioOptimalBet =
+        await calculateFullKellyBetWithPortfolio({
+          estimatedProb: probabilityInput,
+          deferenceFactor,
+          marketSlug: slug,
+          balance,
+          portfolioValue,
+        });
+
       // vague attempt to stop race conditions
       if (slug !== parsedSlug || !marketProb) return;
 
       setFoundMarket(true);
       setKellyBet(kellyOptimalBet);
+      setKellyBetWithPortfolio(kellyWithPortfolioOptimalBet);
       setMarketProb(marketProb);
     };
     void tryFetchMarket(parsedSlug);
-  }, [bankroll, deferenceFactor, marketInput, probabilityInput, user]);
+  }, [
+    balance,
+    bankroll,
+    deferenceFactor,
+    marketInput,
+    portfolioValue,
+    probabilityInput,
+    user,
+  ]);
 
   // Get the user
   useEffect(() => {
@@ -165,9 +190,20 @@ export default function Home() {
             </div>
           )}
           {bankroll !== undefined && (
-            <div>
-              <p>Bankroll: {bankroll.toFixed(0)}</p>
-            </div>
+            <>
+              <div>
+                <p>Bankroll: {bankroll.toFixed(0)}</p>
+              </div>
+              <div>
+                <p>Balance: {balance.toFixed(0)}</p>
+              </div>
+              <div>
+                <p>
+                  Illiquid investment EV:{" "}
+                  {(portfolioValue - balance).toFixed(0)}
+                </p>
+              </div>
+            </>
           )}
           <InputField
             label="Market slug or url:"
@@ -208,6 +244,7 @@ export default function Home() {
           />
           <br />
           {/* Results section */}
+          <div>Optimal bet treating bankroll as fixed:</div>
           {kellyBet && (
             <>
               {naiveKellyOutcome !== kellyBet.outcome && (
@@ -229,6 +266,37 @@ export default function Home() {
               <div>
                 <p>
                   Probability after bet: {(kellyBet.pAfter * 100).toFixed(1)}%
+                </p>
+              </div>
+            </>
+          )}
+          <div>
+            Optimal bet accounting for variation in value of illiquid
+            investments:
+          </div>
+          {kellyBetWithPortfolio && (
+            <>
+              {naiveKellyOutcome !== kellyBetWithPortfolio.outcome && (
+                <div>
+                  <p>ERROR</p>
+                </div>
+              )}
+              <div>
+                <p>
+                  Kelly optimal bet: M{kellyBetWithPortfolio.amount.toFixed(0)}{" "}
+                  on {kellyBetWithPortfolio.outcome}
+                </p>
+              </div>
+              <div>
+                <p>
+                  {kellyBetWithPortfolio.outcome} Shares:{" "}
+                  {kellyBetWithPortfolio.shares.toFixed(0)}
+                </p>
+              </div>
+              <div>
+                <p>
+                  Probability after bet:{" "}
+                  {(kellyBetWithPortfolio.pAfter * 100).toFixed(1)}%
                 </p>
               </div>
             </>

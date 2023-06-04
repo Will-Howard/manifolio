@@ -1,3 +1,5 @@
+import { UnivariateFunction } from "./calculate";
+
 function convolveDistributions(
   dist1: Map<number, number>,
   dist2: Map<number, number>
@@ -225,4 +227,16 @@ function sampleFromCumulativeDistribution(
 
   const index = binarySearch(cumulativeProbs, targetProb);
   return sortedPayouts[index];
+}
+
+// TODO maybe move this to calculate.ts, think about what the separation of concerns should be
+export function integrateOverPmf(
+  f: UnivariateFunction,
+  cdfDist: Map<number, number>
+): number {
+  let result = 0;
+  for (const [payout, prob] of Array.from(cdfDist.entries())) {
+    result += f(payout) * prob;
+  }
+  return result;
 }

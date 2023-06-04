@@ -3,6 +3,7 @@ import {
   computeCumulativeDistribution,
   computeExpectedValue,
   computePayoutDistribution,
+  integrateOverPmf,
 } from "../probability";
 
 function assertExpectedValueEqual({
@@ -95,9 +96,7 @@ describe("Tests for probability logic", () => {
       },
     });
   });
-});
 
-describe("Tests for probability logic", () => {
   test("For small number of bets: combined cumulative distribution is the same using cartesian product and convolutions", () => {
     // Test function
     const bets: BetModel[] = [
@@ -127,23 +126,23 @@ describe("Tests for probability logic", () => {
     expect(sortedPayoutsCart).toEqual(sortedPayoutsConv);
     expect(sortedProbsCart).toEqual(sortedProbsConv);
   });
+
+  test("Calculating expected value by integrating over a probability mass function works", () => {
+    // Test function
+    const bets: BetModel[] = [
+      { probability: 0.3, payout: 2 },
+      { probability: 0.5, payout: 3 },
+    ];
+
+    const payoutDistCart = computePayoutDistribution(bets, "cartesian");
+
+    const expectedValue = integrateOverPmf((payout) => payout, payoutDistCart);
+    expect(expectedValue).toBeCloseTo(2.1);
+
+    const nonTrivialEV = integrateOverPmf(
+      (payout) => payout * payout,
+      payoutDistCart
+    );
+    expect(nonTrivialEV).toBeCloseTo(7.5);
+  });
 });
-
-function computeExpectedValueFromICDF(
-  cumulativeDistribution: Map<number, number>
-): number {
-  const sortedPayouts = Array.from(cumulativeDistribution.keys()).sort(
-    (a, b) => a - b
-  );
-  const sortedProbs = sortedPayouts.map(
-    (payout) => cumulativeDistribution.get(payout) || 0
-  );
-
-  let expectedValue = 0;
-  for (let i = 1; i < sortedProbs.length; i++) {
-    const probDelta = sortedProbs[i] - sortedProbs[i - 1];
-    expectedValue += probDelta * sortedPayouts[i];
-  }
-
-  return expectedValue;
-}
