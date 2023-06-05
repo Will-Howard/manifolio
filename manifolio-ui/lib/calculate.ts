@@ -2,7 +2,6 @@ import logger from "@/logger";
 import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market-utils";
 import {
   BetModel,
-  computeCumulativeDistribution,
   computePayoutDistribution,
   integrateOverPmf,
 } from "./probability";

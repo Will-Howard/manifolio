@@ -1,11 +1,16 @@
 import {
   BetModel,
+  CDF,
   computeCumulativeDistribution,
   computeExpectedValue,
   computePayoutDistribution,
   integrateOverPmf,
 } from "../probability";
 
+/**
+ * Assert the expected value you get from sampling is approximately the same as the expected value given.
+ * This function uses adaptive sampling to reduce the number of trials needed in the success case.
+ */
 function assertExpectedValueEqual({
   initialSamples = 100,
   maxSamples = 1000,
@@ -97,38 +102,25 @@ describe("Tests for probability logic", () => {
     });
   });
 
-  test("For small number of bets: combined cumulative distribution is the same using cartesian product and convolutions", () => {
-    // Test function
+  test("For small number of bets: combined cumulative distribution is as expected from manual calculation", () => {
+    // TODO more thorough testing, this is just a sanity check
     const bets: BetModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },
     ];
 
     // Calculate the combined cumulative distribution
-    const cumDistCart = computeCumulativeDistribution(bets, "cartesian"); // cartesian one is correct currently
-    const cumDistConv = computeCumulativeDistribution(bets, "convolution");
+    const cumDistCart: CDF = computeCumulativeDistribution(bets, "cartesian"); // cartesian one is correct currently
 
-    // Compare the cumulative distributions
-    const sortedPayoutsCart = Array.from(cumDistCart.keys()).sort(
-      (a, b) => a - b
-    );
-    const sortedPayoutsConv = Array.from(cumDistConv.keys()).sort(
-      (a, b) => a - b
-    );
-
-    const sortedProbsCart = sortedPayoutsCart.map(
-      (payout) => cumDistCart.get(payout) || 0
-    );
-    const sortedProbsConv = sortedPayoutsConv.map(
-      (payout) => cumDistConv.get(payout) || 0
-    );
-
-    expect(sortedPayoutsCart).toEqual(sortedPayoutsConv);
-    expect(sortedProbsCart).toEqual(sortedProbsConv);
+    expect(Object.fromEntries(cumDistCart)).toStrictEqual({
+      0: 0.35,
+      2: 0.5,
+      3: 0.85,
+      5: 1,
+    });
   });
 
   test("Calculating expected value by integrating over a probability mass function works", () => {
-    // Test function
     const bets: BetModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },

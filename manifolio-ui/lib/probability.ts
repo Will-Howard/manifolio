@@ -1,13 +1,30 @@
 import { UnivariateFunction } from "./calculate";
 
-function convolveDistributions(
-  dist1: Map<number, number>,
-  dist2: Map<number, number>
-): Map<number, number> {
+/**
+ * A probability mass function is a mapping from a payout to the probability of that payout.
+ */
+export type PMF = Map<number, number>;
+
+/**
+ * A cumulative distribution function is a mapping from a payout to the probability of that payout or _less_.
+ * For instance, if the CDF is { 0: 0.35, 2: 0.5, 3: 0.85, 5: 1 }, then the probability of getting a payout of 2.5 or less is 0.5.
+ */
+export type CDF = Map<number, number>;
+
+export type BetModel = {
+  probability: number;
+  payout: number;
+};
+
+/**
+ * Calculate the convolution of two probability mass functions. This is equivalent to
+ * finding the pmf of the sum of two random variables (sampled from each distribution).
+ */
+function convolveDistributions(pmf1: PMF, pmf2: PMF): PMF {
   const result = new Map<number, number>();
 
-  for (const [payout1, prob1] of Array.from(dist1.entries())) {
-    for (const [payout2, prob2] of Array.from(dist2.entries())) {
+  for (const [payout1, prob1] of Array.from(pmf1.entries())) {
+    for (const [payout2, prob2] of Array.from(pmf2.entries())) {
       const combinedPayout = payout1 + payout2;
       const combinedProb = prob1 * prob2;
 
@@ -21,24 +38,7 @@ function convolveDistributions(
   return result;
 }
 
-// TODO combine with other binary search function
-function binarySearch(arr: number[], target: number): number {
-  let left = 0;
-  let right = arr.length - 1;
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2);
-    if (arr[mid] === target) {
-      return mid;
-    } else if (arr[mid] < target) {
-      left = mid + 1;
-    } else {
-      right = mid - 1;
-    }
-  }
-  return left;
-}
-
-export function cartesianProduct<T>(...allEntries: T[][]): T[][] {
+function cartesianProduct<T>(...allEntries: T[][]): T[][] {
   return allEntries.reduce<T[][]>(
     (results, entries) => {
       const newResults: T[][] = [];
@@ -53,15 +53,10 @@ export function cartesianProduct<T>(...allEntries: T[][]): T[][] {
   );
 }
 
-// Main functions
-export type BetModel = {
-  probability: number;
-  payout: number;
-};
-
-function computePayoutDistributionCartesian(
-  bets: BetModel[]
-): Map<number, number> {
+/**
+ * Compute the probability mass function of the combined payouts of a set of bets using the cartesian product.
+ */
+function computePayoutPMFCartesian(bets: BetModel[]): PMF {
   const outcomes = cartesianProduct(
     ...bets.map((bet) => [
       { payout: 0, probability: 1 - bet.probability },
@@ -81,7 +76,7 @@ function computePayoutDistributionCartesian(
     return { probability, payout };
   });
 
-  const combinedDistribution = new Map<number, number>();
+  const combinedDistribution: PMF = new Map<number, number>();
   for (const outcome of outcomeProbsAndPayouts) {
     combinedDistribution.set(
       outcome.payout,
@@ -92,7 +87,12 @@ function computePayoutDistributionCartesian(
   return combinedDistribution;
 }
 
-function computePayoutDistributionConv(bets: BetModel[]): Map<number, number> {
+/**
+ * @deprecated Compute the probability mass function of the combined payouts of a set of bets using convolutions.
+ * This is not used currently, but I think there is more room for performance optimisation using an approach like this
+ * in future.
+ */
+function computePayoutPMFConvolution(bets: BetModel[]): PMF {
   let combinedDistribution = new Map<number, number>([[0, 1]]);
 
   for (const bet of bets) {
@@ -109,14 +109,17 @@ function computePayoutDistributionConv(bets: BetModel[]): Map<number, number> {
   return combinedDistribution;
 }
 
+/**
+ * Given a set of individual bets, compute the probability mass function of the payouts.
+ */
 export function computePayoutDistribution(
   bets: BetModel[],
   method: "convolution" | "cartesian" = "convolution"
 ): Map<number, number> {
   if (method === "convolution") {
-    return computePayoutDistributionConv(bets);
+    return computePayoutPMFConvolution(bets);
   } else {
-    return computePayoutDistributionCartesian(bets);
+    return computePayoutPMFCartesian(bets);
   }
 }
 
@@ -128,6 +131,10 @@ export function computeExpectedValue(pmf: Map<number, number>): number {
   return expectedValue;
 }
 
+/**
+ * Given a set of individual bets, compute the cumulative distribution (CDF) of the payouts (see above for how the
+ * CDF data structure is defined). Use the cartesian product to do this.
+ */
 function computeCumulativeDistributionCartesian(
   bets: BetModel[]
 ): Map<number, number> {
@@ -162,50 +169,13 @@ function computeCumulativeDistributionCartesian(
   return cumulativeDistribution;
 }
 
-// H(z) = sum over all PAYOUTS of the new bet F(z - payout) * f(payout)
-// There are only two possible outcomes for the new bet: 0 and payout
-// so this sum is H(z) = F(z) * (1 - p) + F(z - payout) * p
-// we then want to precompute all possible values of this
-// Given the current distinct values of F(z), the new distinct values are F(z) and F(z + payout)
-
-// I think I don't actually need the convolution version
-// function computeCumulativeDistributionConvolution(
-//   bets: BetModel[]
-// ): Map<number, number> {
-//   let cumulativeDistribution = new Map<number, number>();
-//   cumulativeDistribution.set(0, 1);
-
-//   for (const bet of bets) {
-//     const newCumulativeDistribution = new Map<number, number>();
-
-//     for (const [payout1, prob1] of Array.from(
-//       cumulativeDistribution.entries()
-//     )) {
-//       const combinedPayout1 = payout1 + bet.payout;
-//       const combinedProb1 = prob1 * bet.probability;
-
-//       newCumulativeDistribution.set(
-//         combinedPayout1,
-//         (newCumulativeDistribution.get(combinedPayout1) || 0) + combinedProb1
-//       );
-
-//       const combinedProb2 = prob1 * (1 - bet.probability);
-//       newCumulativeDistribution.set(
-//         payout1,
-//         (newCumulativeDistribution.get(payout1) || 0) + combinedProb2
-//       );
-//     }
-
-//     cumulativeDistribution = newCumulativeDistribution;
-//   }
-
-//   return cumulativeDistribution;
-// }
-
+/**
+ * Given a set of individual bets, compute the cumulative distribution of the payouts.
+ */
 export function computeCumulativeDistribution(
   bets: BetModel[],
   method: "convolution" | "cartesian" = "cartesian"
-): Map<number, number> {
+): CDF {
   if (method === "convolution") {
     throw new Error("Not implemented");
     // return computeCumulativeDistributionConvolution(bets);
@@ -214,28 +184,13 @@ export function computeCumulativeDistribution(
   }
 }
 
-function sampleFromCumulativeDistribution(
-  cumulativeDistribution: Map<number, number>,
-  targetProb: number
-): number {
-  const sortedPayouts = Array.from(cumulativeDistribution.keys()).sort(
-    (a, b) => a - b
-  );
-  const cumulativeProbs = sortedPayouts.map(
-    (payout) => cumulativeDistribution.get(payout) || 0
-  );
-
-  const index = binarySearch(cumulativeProbs, targetProb);
-  return sortedPayouts[index];
-}
-
-// TODO maybe move this to calculate.ts, think about what the separation of concerns should be
-export function integrateOverPmf(
-  f: UnivariateFunction,
-  cdfDist: Map<number, number>
-): number {
+/**
+ * Given a function of a single variable, treat this as a random variable drawn from the given pmf.
+ * Integrate over the pmf to find the expected value of the function.
+ */
+export function integrateOverPmf(f: UnivariateFunction, pmf: PMF): number {
   let result = 0;
-  for (const [payout, prob] of Array.from(cdfDist.entries())) {
+  for (const [payout, prob] of Array.from(pmf.entries())) {
     result += f(payout) * prob;
   }
   return result;
