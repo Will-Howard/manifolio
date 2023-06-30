@@ -303,7 +303,13 @@ export async function calculateFullKellyBetWithPortfolio({
     );
     return (newShares - betEstimate) / betEstimate;
   };
-  const dEVdBetSimple = async (betEstimate: number) => {
+
+  /**
+   * The derivative of the EV of the bet with respect to the bet amount, only considering the
+   * user's balance, not other illiquid investments they have. This should give an optimal bet
+   * _lower_ than the actual optimum
+   */
+  const dEVdBetBalanceOnly = async (betEstimate: number) => {
     const englishOddsEstimate = await englishOdds(betEstimate);
     const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
 
@@ -328,6 +334,42 @@ export async function calculateFullKellyBetWithPortfolio({
     // This is the difference we want to be zero.
     return newBetEstimate - betEstimate;
   };
+  /**
+   * The derivative of the EV of the bet with respect to the bet amount, considering the
+   * user's balance and treating the illiquid investments as if they are a lump of cash
+   * equal to their current expected value ("cashed out" is a bit of misnomer here because
+   * selling the shares would actually change the market price and so you couldn't recover the
+   * full EV). This should give an optimal bet _higher_ than the actual optimum, because we are optimising
+   * log wealth, which means scenarios where the illiquid investments don't pay out much hurt the EV more
+   * than the other way around.
+   */
+  const dEVdBetIlliquidCashedOut = async (betEstimate: number) => {
+    const englishOddsEstimate = await englishOdds(betEstimate);
+    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+
+    const pYes =
+      estimatedProb * deferenceFactor +
+      (1 - deferenceFactor) * startingMarketProb;
+    const qYes = 1 - pYes;
+    const pWin = outcome === "YES" ? pYes : qYes;
+    const qWin = 1 - pWin;
+
+    const f = betEstimate / balance;
+    const I = relativeIlliquidEV;
+
+    const A = (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
+    const B = -qWin / (1 + I - f);
+    const C =
+      (pWin * f * englishOddsDerivative * balance) /
+      (1 + I + f * englishOddsEstimate);
+
+    return A + B + C;
+  };
+  /**
+   * The derivative of the EV of the bet with respect to the bet amount, considering the
+   * user's balance and modelling the range of outcomes of the illiquid investments. This should
+   * give the true optimal bet, and be between the other two values
+   */
   const dEVdBet = async (betEstimate: number) => {
     const englishOddsEstimate = await englishOdds(betEstimate);
     const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
@@ -355,43 +397,19 @@ export async function calculateFullKellyBetWithPortfolio({
 
     return integral;
   };
-  const dEVdBetHigh = async (betEstimate: number) => {
-    const englishOddsEstimate = await englishOdds(betEstimate);
-    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
-
-    const pYes =
-      estimatedProb * deferenceFactor +
-      (1 - deferenceFactor) * startingMarketProb;
-    const qYes = 1 - pYes;
-    const pWin = outcome === "YES" ? pYes : qYes;
-    const qWin = 1 - pWin;
-
-    const f = betEstimate / balance;
-    const I = relativeIlliquidEV;
-
-    const A = (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
-    const B = -qWin / (1 + I - f);
-    const C =
-      (pWin * f * englishOddsDerivative * balance) /
-      (1 + I + f * englishOddsEstimate);
-
-    return A + B + C;
-  };
 
   const optimalBetInitial = await findRoot(
-    dEVdBetSimple,
+    dEVdBetBalanceOnly,
     lowerBound,
     upperBound
   );
   const optimalBet = await findRoot(
     dEVdBet,
-    // TODO handle the numerical instability in a better way
     optimalBetInitial * 0.5,
     optimalBetInitial * 2
   );
   const optimalBetHigh = await findRoot(
-    dEVdBetHigh,
-    // TODO handle the numerical instability in a better way
+    dEVdBetIlliquidCashedOut,
     optimalBetInitial * 0.5,
     optimalBetInitial * 2
   );
