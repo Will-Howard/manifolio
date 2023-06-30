@@ -85,28 +85,34 @@ export default function Home() {
         return;
       }
 
-      const kellyOptimalBet = await calculateFullKellyBet({
-        estimatedProb: probabilityInput,
-        deferenceFactor,
-        marketSlug: slug,
-        bankroll,
-      });
-      const kellyWithPortfolioOptimalBet =
-        await calculateFullKellyBetWithPortfolio({
+      try {
+        const kellyOptimalBet = await calculateFullKellyBet({
           estimatedProb: probabilityInput,
           deferenceFactor,
           marketSlug: slug,
-          balance,
-          portfolioValue,
+          bankroll,
         });
+        const kellyWithPortfolioOptimalBet =
+          await calculateFullKellyBetWithPortfolio({
+            estimatedProb: probabilityInput,
+            deferenceFactor,
+            marketSlug: slug,
+            balance,
+            portfolioValue,
+          });
 
-      // vague attempt to stop race conditions
-      if (slug !== parsedSlug || !marketProb) return;
+        // vague attempt to stop race conditions
+        if (slug !== parsedSlug || !marketProb) return;
 
-      setFoundMarket(true);
-      setKellyBet(kellyOptimalBet);
-      setKellyBetWithPortfolio(kellyWithPortfolioOptimalBet);
-      setMarketProb(marketProb);
+        setFoundMarket(true);
+        setKellyBet(kellyOptimalBet);
+        setKellyBetWithPortfolio(kellyWithPortfolioOptimalBet);
+        setMarketProb(marketProb);
+      } catch (e) {
+        // TODO make it so this error actually doesn't happen
+        console.error(e);
+        return;
+      }
     };
     void tryFetchMarket(parsedSlug);
   }, [

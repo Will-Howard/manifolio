@@ -203,9 +203,6 @@ export type NumericBet = Bet & {
   allBetAmounts: { [outcome: string]: number };
 };
 
-// Binary market limit order.
-export type LimitBet = Bet & LimitProps;
-
 interface LimitProps {
   orderAmount: number; // Amount of limit order.
   limitProb: number; // [0, 1]. Bet to this probability.
