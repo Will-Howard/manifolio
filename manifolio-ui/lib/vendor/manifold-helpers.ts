@@ -2,8 +2,7 @@
  * These are functions and types copied from the main manifold codebase (https://github.com/manifoldmarkets/manifold)
  */
 import { sortBy, sumBy, union } from "lodash";
-import { assertDefined } from "../strict";
-import { Bet, FullMarket, fill } from "./manifold-sdk";
+import { Bet, FullMarket, LiteMarket, fill } from "./manifold-sdk";
 
 type LimitProps = {
   orderAmount: number; // Amount of limit order.
@@ -424,10 +423,17 @@ const computeFills = (
   return { takers, makers, totalFees, cpmmState, ordersToCancel };
 };
 
+function assertDefined<T>(value: T | undefined): value is T {
+  if (value === undefined) {
+    throw new Error("Value is undefined");
+  }
+  return true;
+}
+
 export const getBinaryCpmmBetInfo = (
   outcome: "YES" | "NO",
   betAmount: number,
-  contract: FullMarket,
+  contract: LiteMarket,
   limitProb: number | undefined,
   unfilledBets: LimitBet[],
   balanceByUserId: { [userId: string]: number }

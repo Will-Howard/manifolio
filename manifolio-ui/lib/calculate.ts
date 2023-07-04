@@ -1,5 +1,5 @@
 import logger from "@/logger";
-import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market-utils";
+import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market";
 import {
   BetModel,
   computePayoutDistribution,

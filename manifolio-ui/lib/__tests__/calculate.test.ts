@@ -1,5 +1,7 @@
 import { calculateNaiveKellyBet, findRoot } from "@/lib/calculate";
 
+// Doing stuff via tests is the only way to get the screen time in vscode
+
 test("Naive Kelly formula gives expected result", () => {
   const { amount, outcome } = calculateNaiveKellyBet({
     marketProb: 0.5,
@@ -40,3 +42,15 @@ describe("Equation solvers work correctly", () => {
     expect(Math.abs(solution - 2)).toBeLessThan(1e-6);
   });
 });
+
+// What can I write tests for?
+// It would be good to switch from using the market and user directly from the API
+// to using a model that I have more control over
+
+// Spec for this:
+// - There are UserModel and MarketModel classes which are relatively simple and
+//   can be used throughout the whole calculation process
+// - In the actual app version, these classes are populated by fetching data from
+//   the API. And there is a cache that periodically refreshes the data (at the same time
+//   for both)
+// - Maybe doing market first will be easier because I've already done most of it

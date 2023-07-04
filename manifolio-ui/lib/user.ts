@@ -14,18 +14,21 @@ export const fetchUser = async (
   }
 };
 
-export class PortfolioModel {
+// TODO should this be UserModel?
+export class UserModel {
   balance: number;
-  illiquidPortfolio: BetModel[];
+  filledBets: BetModel[];
 
-  constructor(balance: number, illiquidPortfolio: BetModel[]) {
+  constructor(balance: number, filledBets: BetModel[]) {
     this.balance = balance;
-    this.illiquidPortfolio = illiquidPortfolio;
+    this.filledBets = filledBets;
   }
-
-  // TODO implement
-  // static fromUser(user: User): PortfolioModel {
-  //   // TODO not implemented yet
-  //   return new PortfolioModel(0, []);
-  // }
 }
+
+export const buildUserModel = async (
+  username: string
+): Promise<UserModel | undefined> => {
+  const api = getManifoldApi();
+
+  const manifoldUser = api.getUser({ username });
+};

@@ -45,7 +45,7 @@ class CachedMarket {
       this.bets = await getManifoldApi().getBets({ marketSlug: this.slug });
 
       if (this.bets.length > 999) {
-        throw new Error("Too many bets (Not implemented pagination))");
+        throw new Error("Too many bets (Not implemented pagination)");
       }
 
       return this.bets;
@@ -158,4 +158,89 @@ export const getBinaryCpmmBetInfoWrapper = async (
 
   const newShares = newBet.shares;
   return { probAfter: getCpmmProbability(newPool, newP), newShares };
+};
+
+class CpmmMarketModel {
+  public market: FullMarket; // TODO it would be nice to use a pared down version of this
+  public bets: Bet[];
+  public unfilledBets: Bet[];
+  public balanceByUserId: Record<string, number>; // TODO refactor to include these in the LimitBets (but not now)
+
+  constructor({
+    market,
+    bets,
+    balanceByUserId,
+  }: {
+    market: FullMarket;
+    bets: Bet[];
+    balanceByUserId: Record<string, number>;
+  }) {
+    this.market = market;
+    this.bets = bets;
+    this.unfilledBets = this.bets.filter(
+      (bet) => bet.isFilled === false && bet.isCancelled === false
+    );
+    this.balanceByUserId = balanceByUserId;
+  }
+
+  getBetInfo = (
+    outcome: "YES" | "NO",
+    betAmount: number
+  ): { probAfter: number; newShares: number } => {
+    const { newPool, newP, newBet } = getBinaryCpmmBetInfo(
+      outcome,
+      betAmount,
+      this.market as FullMarket,
+      undefined,
+      this.unfilledBets as LimitBet[], // TODO better type checking
+      this.balanceByUserId
+    );
+
+    const newShares = newBet.shares;
+    return { probAfter: getCpmmProbability(newPool, newP), newShares };
+  };
+}
+
+export const buildCpmmMarketModel = async (slug: string) => {
+  const api = getManifoldApi();
+
+  // Fetch market
+  const market = await api.getMarket({ slug });
+
+  // Fetch bets with pagination
+  const allBets: Bet[] = [];
+  let before: string | undefined = undefined;
+
+  while (true) {
+    const bets = await api.getBets({ marketSlug: slug, before, limit: 1000 });
+    allBets.push(...bets);
+
+    // Break if:
+    // - The latest page of bets is less than 1000 (indicating that there are no more pages)
+    // - There are no bets at all
+    // - There are no bets in the latest page (if the last page happened to be exactly 1000 bets)
+    if (bets.length < 1000 || allBets.length === 0 || allBets.length === 0) {
+      break;
+    }
+
+    before = allBets[allBets.length - 1].id;
+  }
+
+  // Calculate balanceByUserId
+  const unfilledBets = allBets.filter(
+    (bet) => bet.isFilled === false && bet.isCancelled === false
+  );
+  const userIds = [...new Set(unfilledBets.map((bet) => bet.userId))];
+
+  const users = await Promise.all(
+    userIds.map((userId) => getManifoldApi().getUser({ id: userId }))
+  );
+  const balanceByUserId = users.reduce((acc, user) => {
+    if (user) {
+      acc[user.id] = user.balance;
+    }
+    return acc;
+  }, {} as { [userId: string]: number });
+
+  return new CpmmMarketModel({ market, bets: allBets, balanceByUserId });
 };

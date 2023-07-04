@@ -4,8 +4,8 @@ import {
   calculateFullKellyBet,
   calculateFullKellyBetWithPortfolio,
 } from "@/lib/calculate";
-import { fetchMarketCached } from "@/lib/market-utils";
-import { fetchUser } from "@/lib/user-utils";
+import { fetchMarketCached } from "@/lib/market";
+import { fetchUser } from "@/lib/user";
 import { User } from "@/lib/vendor/manifold-sdk";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
