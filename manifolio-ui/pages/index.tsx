@@ -1,12 +1,7 @@
 import { InputField } from "@/components/InputField";
-import {
-  BetRecommendationFull,
-  calculateFullKellyBet,
-  calculateFullKellyBetWithPortfolio,
-} from "@/lib/calculate";
-import { fetchMarketCached } from "@/lib/market-utils";
-import { fetchUser } from "@/lib/user-utils";
-import { User } from "@/lib/vendor/manifold-sdk";
+import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
+import { CpmmMarketModel, buildCpmmMarketModel } from "@/lib/market";
+import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
 import { useEffect, useState } from "react";
@@ -36,8 +31,6 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
 }));
 
-const FALLBACK_BALANCE = 1000;
-
 export default function Home() {
   const classes = useStyles();
 
@@ -53,95 +46,77 @@ export default function Home() {
 
   const [probabilityInput, setProbabilityInput] = useState(0.5);
   const [deferenceFactor, setDeferenceFactor] = useState(0.5);
-  const [useBalance, setUseBalance] = useState(false);
 
-  const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
-  const [user, setUser] = useState<User | undefined>(undefined);
-  const [kellyBet, setKellyBet] = useState<BetRecommendationFull | undefined>(
+  const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
     undefined
   );
-  const [kellyBetWithPortfolio, setKellyBetWithPortfolio] = useState<
+  const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
+  const [betRecommendation, setBetRecommendation] = useState<
     BetRecommendationFull | undefined
   >(undefined);
 
-  const balance = user?.balance ?? FALLBACK_BALANCE;
-  const portfolioValue =
-    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
-
-  const bankroll = useBalance ? balance : portfolioValue;
+  const marketProb = marketModel?.market.probability;
 
   // TODO hide more of this handling in the lib code
   useEffect(() => {
-    if (!marketInput || marketInput.length == 0) return;
-    const parsedSlug = marketInput.split("/").pop() || "";
+    const tryCalculate = async () => {
+      if (!marketModel || !userModel) return;
 
-    const tryFetchMarket = async (slug: string) => {
-      const market = await fetchMarketCached({ slug });
-      const marketProb = (await market.getMarket())?.probability;
-
-      // If e.g. the slug is not valid, don't update anything
-      if (!marketProb) {
-        setFoundMarket(false);
-        return;
-      }
-
-      try {
-        const kellyOptimalBet = await calculateFullKellyBet({
-          estimatedProb: probabilityInput,
-          deferenceFactor,
-          marketSlug: slug,
-          bankroll,
-        });
-        const kellyWithPortfolioOptimalBet =
-          await calculateFullKellyBetWithPortfolio({
+      const kellyWithPortfolioOptimalBet = userModel
+        ? await getBetRecommendation({
             estimatedProb: probabilityInput,
             deferenceFactor,
-            marketSlug: slug,
-            balance,
-            portfolioValue,
-          });
+            marketModel,
+            userModel,
+          })
+        : undefined;
 
-        // vague attempt to stop race conditions
-        if (slug !== parsedSlug || !marketProb) return;
-
-        setFoundMarket(true);
-        setKellyBet(kellyOptimalBet);
-        setKellyBetWithPortfolio(kellyWithPortfolioOptimalBet);
-        setMarketProb(marketProb);
-      } catch (e) {
-        // TODO make it so this error actually doesn't happen
-        console.error(e);
-        return;
-      }
+      setBetRecommendation(kellyWithPortfolioOptimalBet);
     };
-    void tryFetchMarket(parsedSlug);
-  }, [
-    balance,
-    bankroll,
-    deferenceFactor,
-    marketInput,
-    portfolioValue,
-    probabilityInput,
-    user,
-  ]);
+    void tryCalculate();
+  }, [deferenceFactor, marketModel, probabilityInput, userModel]);
 
-  // Get the user
+  // Fetch the user
   useEffect(() => {
     if (!usernameInput || usernameInput.length == 0) return;
     const parsedUsername = usernameInput.split("/").pop() || "";
 
     const tryFetchUser = async (username: string) => {
       const fetchedUser = await fetchUser(username);
+      const userModel = await buildUserModel(username);
       if (!fetchedUser) {
         setFoundUser(false);
         return;
       }
 
       setFoundUser(true);
-      setUser(fetchedUser);
+      setUserModel(userModel);
     };
-    tryFetchUser(parsedUsername);
+    void tryFetchUser(parsedUsername);
   }, [usernameInput]);
+
+  // Fetch the market
+  useEffect(() => {
+    if (!marketInput || marketInput.length == 0) return;
+    const parsedSlug = marketInput.split("/").pop() || "";
+
+    const tryFetchMarket = async (slug: string) => {
+      const marketModel = await buildCpmmMarketModel(slug);
+
+      // If e.g. the slug is not valid, don't update anything
+      if (!marketModel) {
+        setFoundMarket(false);
+        return;
+      }
+
+      // vague attempt to stop race conditions
+      if (slug !== parsedSlug) return;
+
+      setFoundMarket(true);
+      setMarketModel(marketModel);
+    };
+    void tryFetchMarket(parsedSlug);
+  }, [marketInput]);
 
   const naiveKellyOutcome =
     probabilityInput > (marketProb ?? probabilityInput) ? "YES" : "NO";
@@ -171,45 +146,15 @@ export default function Home() {
             onChange={(e) => setUsernameInput(e.target.value)}
             status={foundUser ? "success" : "error"}
           />
-          {balance !== undefined && portfolioValue !== undefined && (
-            <div className={classes.calculatorRow}>
-              <div>
-                <input
-                  type="radio"
-                  id="balance"
-                  checked={useBalance}
-                  onClick={() => setUseBalance(true)}
-                />
-                <label htmlFor="balance">Balance: {balance.toFixed(0)}</label>
-              </div>
-              <div>
-                <input
-                  type="radio"
-                  id="portfolioValue"
-                  checked={!useBalance}
-                  onClick={() => setUseBalance(false)}
-                />
-                <label htmlFor="portfolioValue">
-                  Portfolio value: {portfolioValue.toFixed(0)}
-                </label>
-              </div>
+          {userModel && (
+            <div>
+              <p>Balance: {userModel.balance.toFixed(0)}</p>
+              <p>Total loans: {userModel.loans.toFixed(0)}</p>
+              <p>
+                Balance net of loans: {userModel.balanceAfterLoans.toFixed(0)}
+              </p>
+              <p>Portfolio value: {userModel.portfolioEV.toFixed(0)}</p>
             </div>
-          )}
-          {bankroll !== undefined && (
-            <>
-              <div>
-                <p>Bankroll: {bankroll.toFixed(0)}</p>
-              </div>
-              <div>
-                <p>Balance: {balance.toFixed(0)}</p>
-              </div>
-              <div>
-                <p>
-                  Illiquid investment EV:{" "}
-                  {(portfolioValue - balance).toFixed(0)}
-                </p>
-              </div>
-            </>
           )}
           <InputField
             label="Market slug or url:"
@@ -250,59 +195,46 @@ export default function Home() {
           />
           <br />
           {/* Results section */}
-          <div>Optimal bet treating bankroll as fixed:</div>
-          {kellyBet && (
-            <>
-              {naiveKellyOutcome !== kellyBet.outcome && (
-                <div>
-                  <p>ERROR</p>
-                </div>
-              )}
-              <div>
-                <p>
-                  Kelly optimal bet: M{kellyBet.amount.toFixed(0)} on{" "}
-                  {kellyBet.outcome}
-                </p>
-              </div>
-              <div>
-                <p>
-                  {kellyBet.outcome} Shares: {kellyBet.shares.toFixed(0)}
-                </p>
-              </div>
-              <div>
-                <p>
-                  Probability after bet: {(kellyBet.pAfter * 100).toFixed(1)}%
-                </p>
-              </div>
-            </>
-          )}
           <div>
             Optimal bet accounting for variation in value of illiquid
             investments:
           </div>
-          {kellyBetWithPortfolio && (
+          {betRecommendation && (
             <>
-              {naiveKellyOutcome !== kellyBetWithPortfolio.outcome && (
+              {naiveKellyOutcome !== betRecommendation.outcome && (
                 <div>
                   <p>ERROR</p>
                 </div>
               )}
               <div>
                 <p>
-                  Kelly optimal bet: M{kellyBetWithPortfolio.amount.toFixed(0)}{" "}
-                  on {kellyBetWithPortfolio.outcome}
+                  Kelly optimal bet: M{betRecommendation.amount.toFixed(0)} on{" "}
+                  {betRecommendation.outcome}
                 </p>
               </div>
               <div>
                 <p>
-                  {kellyBetWithPortfolio.outcome} Shares:{" "}
-                  {kellyBetWithPortfolio.shares.toFixed(0)}
+                  {betRecommendation.outcome} Shares:{" "}
+                  {betRecommendation.shares.toFixed(0)}
                 </p>
               </div>
               <div>
                 <p>
                   Probability after bet:{" "}
-                  {(kellyBetWithPortfolio.pAfter * 100).toFixed(1)}%
+                  {(betRecommendation.pAfter * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div>
+                <p>
+                  ROI from a portfolio of similar independent bets (annual):{" "}
+                  {((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%
+                </p>
+              </div>
+              <div>
+                <p>
+                  ROI if this were your only bet (annual):{" "}
+                  {((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(3)}
+                  %
                 </p>
               </div>
             </>

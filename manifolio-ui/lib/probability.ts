@@ -1,3 +1,4 @@
+import seedrandom from "seedrandom";
 import { UnivariateFunction } from "./calculate";
 
 /**
@@ -11,9 +12,10 @@ export type PMF = Map<number, number>;
  */
 export type CDF = Map<number, number>;
 
-export type BetModel = {
+export type PositionModel = {
   probability: number;
   payout: number;
+  loan?: number;
 };
 
 /**
@@ -56,7 +58,7 @@ function cartesianProduct<T>(...allEntries: T[][]): T[][] {
 /**
  * Compute the probability mass function of the combined payouts of a set of bets using the cartesian product.
  */
-function computePayoutPMFCartesian(bets: BetModel[]): PMF {
+function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
   const outcomes = cartesianProduct(
     ...bets.map((bet) => [
       { payout: 0, probability: 1 - bet.probability },
@@ -88,11 +90,48 @@ function computePayoutPMFCartesian(bets: BetModel[]): PMF {
 }
 
 /**
+ * Compute the probability mass function of the combined payouts of a set of bets using a Monte Carlo method.
+ */
+function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
+  const numSamples = 5000;
+  const seed = 1; // or any number of your choice
+  const rng = seedrandom(seed.toString()); // seedrandom is a seeded random number generator library
+
+  const sampleOutcomes: number[] = [];
+
+  for (let i = 0; i < numSamples; i++) {
+    let samplePayout = 0;
+    for (const bet of bets) {
+      const randomOutcome = rng();
+      if (randomOutcome <= bet.probability) {
+        samplePayout += bet.payout;
+      }
+    }
+    sampleOutcomes.push(samplePayout);
+  }
+
+  // Count occurrences of each outcome
+  const outcomeCounts: Map<number, number> = new Map();
+  for (const outcome of sampleOutcomes) {
+    const currentCount = outcomeCounts.get(outcome) || 0;
+    outcomeCounts.set(outcome, currentCount + 1);
+  }
+
+  // Normalize counts to compute probabilities
+  const outcomePMF: PMF = new Map();
+  for (const [outcome, count] of outcomeCounts.entries()) {
+    outcomePMF.set(outcome, count / numSamples);
+  }
+
+  return outcomePMF;
+}
+
+/**
  * @deprecated Compute the probability mass function of the combined payouts of a set of bets using convolutions.
  * This is not used currently, but I think there is more room for performance optimisation using an approach like this
  * in future.
  */
-function computePayoutPMFConvolution(bets: BetModel[]): PMF {
+function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
   let combinedDistribution = new Map<number, number>([[0, 1]]);
 
   for (const bet of bets) {
@@ -113,11 +152,11 @@ function computePayoutPMFConvolution(bets: BetModel[]): PMF {
  * Given a set of individual bets, compute the probability mass function of the payouts.
  */
 export function computePayoutDistribution(
-  bets: BetModel[],
-  method: "convolution" | "cartesian" = "convolution"
+  bets: PositionModel[],
+  method: "cartesian" | "monte-carlo" = "cartesian"
 ): Map<number, number> {
-  if (method === "convolution") {
-    return computePayoutPMFConvolution(bets);
+  if (method === "monte-carlo") {
+    return computePayoutPMFMonteCarlo(bets);
   } else {
     return computePayoutPMFCartesian(bets);
   }
@@ -136,7 +175,7 @@ export function computeExpectedValue(pmf: Map<number, number>): number {
  * CDF data structure is defined). Use the cartesian product to do this.
  */
 function computeCumulativeDistributionCartesian(
-  bets: BetModel[]
+  bets: PositionModel[]
 ): Map<number, number> {
   const outcomes = cartesianProduct(
     ...bets.map((bet) => [
@@ -173,7 +212,7 @@ function computeCumulativeDistributionCartesian(
  * Given a set of individual bets, compute the cumulative distribution of the payouts.
  */
 export function computeCumulativeDistribution(
-  bets: BetModel[],
+  bets: PositionModel[],
   method: "convolution" | "cartesian" = "cartesian"
 ): CDF {
   if (method === "convolution") {
