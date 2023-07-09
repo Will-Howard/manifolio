@@ -160,7 +160,7 @@ export const getBinaryCpmmBetInfoWrapper = async (
   return { probAfter: getCpmmProbability(newPool, newP), newShares };
 };
 
-class CpmmMarketModel {
+export class CpmmMarketModel {
   public market: FullMarket; // TODO it would be nice to use a pared down version of this
   public bets: Bet[];
   public unfilledBets: Bet[];

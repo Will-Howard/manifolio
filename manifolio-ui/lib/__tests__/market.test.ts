@@ -1,6 +1,6 @@
 import { buildCpmmMarketModel } from "../market";
 
-// Slightly hacky to use the live api in tests, this this won't change very often
+// FIXME Slightly hacky to use the live api in tests
 const highActivityMarket = "will-biden-be-the-2024-democratic-n";
 
 test("Tests for converting data from the manifold api into a static CpmmMarketModel", async () => {

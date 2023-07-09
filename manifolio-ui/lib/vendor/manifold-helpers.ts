@@ -358,10 +358,10 @@ const computeFills = (
   balanceByUserId: { [userId: string]: number }
 ) => {
   if (isNaN(betAmount)) {
-    throw new Error("Invalid bet amount: ${betAmount}");
+    throw new Error(`Invalid bet amount: ${betAmount}`);
   }
   if (isNaN(limitProb ?? 0)) {
-    throw new Error("Invalid limitProb: ${limitProb}");
+    throw new Error(`Invalid limitProb: ${limitProb}`);
   }
 
   const sortedBets = sortBy(

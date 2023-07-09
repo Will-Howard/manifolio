@@ -137,17 +137,11 @@ export const fetchUser = async (
 
 export class UserModel {
   balance: number;
-  filledPositions: PositionModel[];
-  // unFilledBets: PositionModel[];
+  positions: PositionModel[];
 
-  constructor(
-    balance: number,
-    filledPositions: PositionModel[]
-    // unFilledBets: PositionModel[]
-  ) {
+  constructor(balance: number, positions: PositionModel[]) {
     this.balance = balance;
-    this.filledPositions = filledPositions;
-    // this.unFilledBets = unFilledBets;
+    this.positions = positions;
   }
 }
 

@@ -1,5 +1,9 @@
 import logger from "@/logger";
-import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market";
+import {
+  getBinaryCpmmBetInfoWrapper,
+  fetchMarketCached,
+  CpmmMarketModel,
+} from "./market";
 import {
   PositionModel,
   computePayoutDistribution,
@@ -123,13 +127,23 @@ export function calculateNaiveKellyBet({
 /**
  * Differentiate a function numerically
  */
-async function D(
+async function asyncD(
   f: AsyncUnivariateFunction,
   x: number,
   h = 1e-3
 ): Promise<number> {
   const fPlus = await f(x + h);
   const fMinus = await f(x - h);
+
+  return (fPlus - fMinus) / (2 * h);
+}
+
+/**
+ * Differentiate a function numerically
+ */
+function D(f: UnivariateFunction, x: number, h = 1e-3): number {
+  const fPlus = f(x + h);
+  const fMinus = f(x - h);
 
   return (fPlus - fMinus) / (2 * h);
 }
@@ -148,9 +162,17 @@ export async function findRoot(
 
   for (let i = 0; i < iterations; i++) {
     const fx = await f(x);
-    const dfx = await D(f, x);
+    const dfx = await asyncD(f, x);
 
-    let xNext = x - fx / dfx;
+    const incIdeal = dfx !== 0 ? fx / dfx : Math.random();
+    // If the increment is very large, it's probably because we're near a stationary point,
+    // scale it down to avoid overshooting
+    const inc =
+      Math.abs(incIdeal) > (upperBound - lowerBound) / 2
+        ? incIdeal / 10
+        : incIdeal;
+
+    let xNext = x - inc;
 
     // Check if xNext is within bounds
     if (xNext < lowerBound || xNext > upperBound) {
@@ -172,106 +194,34 @@ export async function findRoot(
 }
 
 /**
- * Calculate the Kelly optimal bet, accounting for market liquidity. Assume a fixed bankroll
- * and a portfolio of only one bet
+ * Calculate the Kelly optimal bet, accounting for:
+ *  - market liquidity
+ *  - illiquid investments
+ *
+ * Not yet accounting for:
+ *  - _all_ illiquid investments
+ *  - opportunity cost
+ *  - loans properly
  */
 export async function calculateFullKellyBet({
   estimatedProb,
   deferenceFactor,
-  marketSlug,
-  bankroll,
-}: {
-  estimatedProb: number;
-  deferenceFactor: number;
-  marketSlug: string;
-  bankroll: number;
-}): Promise<BetRecommendation & { shares: number; pAfter: number }> {
-  const market = await fetchMarketCached({ slug: marketSlug });
-  const startingMarketProb = (await market.getMarket())?.probability;
-  if (!startingMarketProb) {
-    logger.info("Could not get market prob");
-    return { amount: 0, outcome: "YES", shares: 0, pAfter: 0 };
-  }
-  const { amount: naiveKellyAmount, outcome } = calculateNaiveKellyBet({
-    marketProb: startingMarketProb,
-    estimatedProb,
-    deferenceFactor,
-    bankroll,
-  });
-
-  const lowerBound = 0;
-  const upperBound = naiveKellyAmount;
-
-  const englishOdds = async (betEstimate: number) => {
-    const { newShares } = await getBinaryCpmmBetInfoWrapper(
-      outcome,
-      betEstimate,
-      marketSlug
-    );
-    return (newShares - betEstimate) / betEstimate;
-  };
-  const calcBetEstimate = async (betEstimate: number) => {
-    const englishOddsEstimate = await englishOdds(betEstimate);
-    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
-
-    const pYes =
-      estimatedProb * deferenceFactor +
-      (1 - deferenceFactor) * startingMarketProb;
-    const qYes = 1 - pYes;
-    const pWin = outcome === "YES" ? pYes : qYes;
-    const qWin = 1 - pWin;
-
-    // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
-    const A = pWin * bankroll * englishOddsDerivative;
-    const B = englishOddsEstimate - A;
-    const C = -(pWin * englishOddsEstimate - qWin);
-
-    // Using this intermediate root finding is _much_ more numerically stable than finding the
-    // root of Af^2 + Bf + C = 0 directly for some reason
-    const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
-
-    const newBetEstimate = f * bankroll;
-
-    // This is the difference we want to be zero.
-    return newBetEstimate - betEstimate;
-  };
-
-  const optimalBet = await findRoot(calcBetEstimate, lowerBound, upperBound);
-
-  const { newShares: shares, probAfter: pAfter } =
-    await getBinaryCpmmBetInfoWrapper(outcome, optimalBet, marketSlug);
-
-  return {
-    amount: optimalBet,
-    outcome,
-    shares,
-    pAfter: pAfter ?? 0,
-  };
-}
-
-/**
- * Calculate the Kelly optimal bet, accounting for market liquidity. Assume a fixed bankroll
- * and a portfolio of only one bet
- */
-export async function calculateFullKellyBetWithPortfolio({
-  estimatedProb,
-  deferenceFactor,
-  marketSlug,
+  marketModel,
   userModel,
 }: {
   estimatedProb: number;
   deferenceFactor: number;
-  marketSlug: string;
+  marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): Promise<BetRecommendation & { shares: number; pAfter: number }> {
-  const positions = userModel.filledPositions
+  const positions = userModel.positions
     .sort((a, b) => b.probability * b.payout - a.probability * a.payout)
     // TODO handle more positions
     .slice(0, 12);
   const balance =
     userModel.balance -
-    userModel.filledPositions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
-  const illiquidEV = userModel.filledPositions.reduce(
+    userModel.positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
+  const illiquidEV = userModel.positions.reduce(
     (acc, position) => acc + position.probability * position.payout,
     0
   );
@@ -283,12 +233,8 @@ export async function calculateFullKellyBetWithPortfolio({
 
   console.log("Illiquid PMF:", illiquidPmf.size);
 
-  const market = await fetchMarketCached({ slug: marketSlug });
-  const startingMarketProb = (await market.getMarket())?.probability;
-  if (!startingMarketProb) {
-    logger.info("Could not get market prob");
-    return { amount: 0, outcome: "YES", shares: 0, pAfter: 0 };
-  }
+  const startingMarketProb = marketModel.market.probability;
+
   const { amount: naiveKellyAmount, outcome } = calculateNaiveKellyBet({
     marketProb: startingMarketProb,
     estimatedProb,
@@ -299,12 +245,8 @@ export async function calculateFullKellyBetWithPortfolio({
   const lowerBound = 0;
   const upperBound = naiveKellyAmount;
 
-  const englishOdds = async (betEstimate: number) => {
-    const { newShares } = await getBinaryCpmmBetInfoWrapper(
-      outcome,
-      betEstimate,
-      marketSlug
-    );
+  const englishOdds = (betEstimate: number) => {
+    const { newShares } = marketModel.getBetInfo(outcome, betEstimate);
     return (newShares - betEstimate) / betEstimate;
   };
 
@@ -314,8 +256,8 @@ export async function calculateFullKellyBetWithPortfolio({
    * _lower_ than the actual optimum
    */
   const dEVdBetBalanceOnly = async (betEstimate: number) => {
-    const englishOddsEstimate = await englishOdds(betEstimate);
-    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+    const englishOddsEstimate = englishOdds(betEstimate);
+    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
     const pYes =
       estimatedProb * deferenceFactor +
@@ -348,8 +290,8 @@ export async function calculateFullKellyBetWithPortfolio({
    * than the other way around.
    */
   const dEVdBetIlliquidCashedOut = async (betEstimate: number) => {
-    const englishOddsEstimate = await englishOdds(betEstimate);
-    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+    const englishOddsEstimate = englishOdds(betEstimate);
+    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
     const pYes =
       estimatedProb * deferenceFactor +
@@ -375,8 +317,8 @@ export async function calculateFullKellyBetWithPortfolio({
    * give the true optimal bet, and be between the other two values
    */
   const dEVdBet = async (betEstimate: number) => {
-    const englishOddsEstimate = await englishOdds(betEstimate);
-    const englishOddsDerivative = await D(englishOdds, betEstimate, 0.1);
+    const englishOddsEstimate = englishOdds(betEstimate);
+    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
     const pYes =
       estimatedProb * deferenceFactor +
@@ -423,8 +365,10 @@ export async function calculateFullKellyBetWithPortfolio({
   console.log({ optimalBetInitial, optimalBet, optimalBetHigh });
 
   // get the shares and pAfter
-  const { newShares: shares, probAfter: pAfter } =
-    await getBinaryCpmmBetInfoWrapper(outcome, optimalBet, marketSlug);
+  const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
+    outcome,
+    optimalBet
+  );
 
   return {
     amount: optimalBet,
