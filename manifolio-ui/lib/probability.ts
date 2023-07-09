@@ -1,3 +1,4 @@
+import seedrandom from "seedrandom";
 import { UnivariateFunction } from "./calculate";
 
 /**
@@ -89,6 +90,43 @@ function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
 }
 
 /**
+ * Compute the probability mass function of the combined payouts of a set of bets using a Monte Carlo method.
+ */
+function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
+  const numSamples = 5000;
+  const seed = 1; // or any number of your choice
+  const rng = seedrandom(seed.toString()); // seedrandom is a seeded random number generator library
+
+  const sampleOutcomes: number[] = [];
+
+  for (let i = 0; i < numSamples; i++) {
+    let samplePayout = 0;
+    for (const bet of bets) {
+      const randomOutcome = rng();
+      if (randomOutcome <= bet.probability) {
+        samplePayout += bet.payout;
+      }
+    }
+    sampleOutcomes.push(samplePayout);
+  }
+
+  // Count occurrences of each outcome
+  const outcomeCounts: Map<number, number> = new Map();
+  for (const outcome of sampleOutcomes) {
+    const currentCount = outcomeCounts.get(outcome) || 0;
+    outcomeCounts.set(outcome, currentCount + 1);
+  }
+
+  // Normalize counts to compute probabilities
+  const outcomePMF: PMF = new Map();
+  for (const [outcome, count] of outcomeCounts.entries()) {
+    outcomePMF.set(outcome, count / numSamples);
+  }
+
+  return outcomePMF;
+}
+
+/**
  * @deprecated Compute the probability mass function of the combined payouts of a set of bets using convolutions.
  * This is not used currently, but I think there is more room for performance optimisation using an approach like this
  * in future.
@@ -115,10 +153,10 @@ function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
  */
 export function computePayoutDistribution(
   bets: PositionModel[],
-  method: "convolution" | "cartesian" = "convolution"
+  method: "cartesian" | "monte-carlo" = "cartesian"
 ): Map<number, number> {
-  if (method === "convolution") {
-    return computePayoutPMFConvolution(bets);
+  if (method === "monte-carlo") {
+    return computePayoutPMFMonteCarlo(bets);
   } else {
     return computePayoutPMFCartesian(bets);
   }

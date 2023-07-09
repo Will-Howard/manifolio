@@ -1,8 +1,7 @@
 import { InputField } from "@/components/InputField";
-import { BetRecommendationFull, calculateFullKellyBet } from "@/lib/calculate";
+import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
 import { CpmmMarketModel, buildCpmmMarketModel } from "@/lib/market";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
-import { User } from "@/lib/vendor/manifold-sdk";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
 import { useEffect, useState } from "react";
@@ -32,8 +31,6 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
 }));
 
-const FALLBACK_BALANCE = 1000;
-
 export default function Home() {
   const classes = useStyles();
 
@@ -49,22 +46,14 @@ export default function Home() {
 
   const [probabilityInput, setProbabilityInput] = useState(0.5);
   const [deferenceFactor, setDeferenceFactor] = useState(0.5);
-  const [useBalance, setUseBalance] = useState(false);
 
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
     undefined
   );
-  const [user, setUser] = useState<User | undefined>(undefined);
   const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
-  const [kellyBetWithPortfolio, setKellyBetWithPortfolio] = useState<
+  const [betRecommendation, setBetRecommendation] = useState<
     BetRecommendationFull | undefined
   >(undefined);
-
-  const balance = user?.balance ?? FALLBACK_BALANCE;
-  const portfolioValue =
-    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
-
-  const bankroll = useBalance ? balance : portfolioValue;
 
   const marketProb = marketModel?.market.probability;
 
@@ -74,7 +63,7 @@ export default function Home() {
       if (!marketModel || !userModel) return;
 
       const kellyWithPortfolioOptimalBet = userModel
-        ? await calculateFullKellyBet({
+        ? await getBetRecommendation({
             estimatedProb: probabilityInput,
             deferenceFactor,
             marketModel,
@@ -82,7 +71,7 @@ export default function Home() {
           })
         : undefined;
 
-      setKellyBetWithPortfolio(kellyWithPortfolioOptimalBet);
+      setBetRecommendation(kellyWithPortfolioOptimalBet);
     };
     void tryCalculate();
   }, [deferenceFactor, marketModel, probabilityInput, userModel]);
@@ -101,7 +90,6 @@ export default function Home() {
       }
 
       setFoundUser(true);
-      setUser(fetchedUser);
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
@@ -158,45 +146,15 @@ export default function Home() {
             onChange={(e) => setUsernameInput(e.target.value)}
             status={foundUser ? "success" : "error"}
           />
-          {balance !== undefined && portfolioValue !== undefined && (
-            <div className={classes.calculatorRow}>
-              <div>
-                <input
-                  type="radio"
-                  id="balance"
-                  checked={useBalance}
-                  onClick={() => setUseBalance(true)}
-                />
-                <label htmlFor="balance">Balance: {balance.toFixed(0)}</label>
-              </div>
-              <div>
-                <input
-                  type="radio"
-                  id="portfolioValue"
-                  checked={!useBalance}
-                  onClick={() => setUseBalance(false)}
-                />
-                <label htmlFor="portfolioValue">
-                  Portfolio value: {portfolioValue.toFixed(0)}
-                </label>
-              </div>
+          {userModel && (
+            <div>
+              <p>Balance: {userModel.balance.toFixed(0)}</p>
+              <p>Total loans: {userModel.loans.toFixed(0)}</p>
+              <p>
+                Balance net of loans: {userModel.balanceAfterLoans.toFixed(0)}
+              </p>
+              <p>Portfolio value: {userModel.portfolioEV.toFixed(0)}</p>
             </div>
-          )}
-          {bankroll !== undefined && (
-            <>
-              <div>
-                <p>Bankroll: {bankroll.toFixed(0)}</p>
-              </div>
-              <div>
-                <p>Balance: {balance.toFixed(0)}</p>
-              </div>
-              <div>
-                <p>
-                  Illiquid investment EV:{" "}
-                  {(portfolioValue - balance).toFixed(0)}
-                </p>
-              </div>
-            </>
           )}
           <InputField
             label="Market slug or url:"
@@ -241,29 +199,42 @@ export default function Home() {
             Optimal bet accounting for variation in value of illiquid
             investments:
           </div>
-          {kellyBetWithPortfolio && (
+          {betRecommendation && (
             <>
-              {naiveKellyOutcome !== kellyBetWithPortfolio.outcome && (
+              {naiveKellyOutcome !== betRecommendation.outcome && (
                 <div>
                   <p>ERROR</p>
                 </div>
               )}
               <div>
                 <p>
-                  Kelly optimal bet: M{kellyBetWithPortfolio.amount.toFixed(0)}{" "}
-                  on {kellyBetWithPortfolio.outcome}
+                  Kelly optimal bet: M{betRecommendation.amount.toFixed(0)} on{" "}
+                  {betRecommendation.outcome}
                 </p>
               </div>
               <div>
                 <p>
-                  {kellyBetWithPortfolio.outcome} Shares:{" "}
-                  {kellyBetWithPortfolio.shares.toFixed(0)}
+                  {betRecommendation.outcome} Shares:{" "}
+                  {betRecommendation.shares.toFixed(0)}
                 </p>
               </div>
               <div>
                 <p>
                   Probability after bet:{" "}
-                  {(kellyBetWithPortfolio.pAfter * 100).toFixed(1)}%
+                  {(betRecommendation.pAfter * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div>
+                <p>
+                  ROI from a portfolio of similar independent bets (annual):{" "}
+                  {((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%
+                </p>
+              </div>
+              <div>
+                <p>
+                  ROI if this were your only bet (annual):{" "}
+                  {((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(3)}
+                  %
                 </p>
               </div>
             </>

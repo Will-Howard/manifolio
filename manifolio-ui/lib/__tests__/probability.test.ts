@@ -74,16 +74,16 @@ describe("Tests for probability logic", () => {
 
     // Calculate the combined probability distribution
     const payoutDistCart = computePayoutDistribution(bets, "cartesian");
-    const payoutDistConv = computePayoutDistribution(bets, "convolution");
+    const payoutDistMC = computePayoutDistribution(bets, "monte-carlo");
 
     // Sum over the probabilities to check that they add up to 1
     assertValidDistribution(payoutDistCart);
-    assertValidDistribution(payoutDistConv);
+    assertValidDistribution(payoutDistMC);
 
     // Check that the expected values are the same
     const expectedValueCart = computeExpectedValue(payoutDistCart);
-    const expectedValueConv = computeExpectedValue(payoutDistConv);
-    expect(expectedValueCart).toBeCloseTo(expectedValueConv);
+    const expectedValueMC = computeExpectedValue(payoutDistMC);
+    expect(Math.abs(expectedValueCart - expectedValueMC)).toBeLessThan(0.1);
 
     // Check that we get the same result by sampling
     assertExpectedValueEqual({

@@ -1,14 +1,5 @@
-import logger from "@/logger";
-import {
-  getBinaryCpmmBetInfoWrapper,
-  fetchMarketCached,
-  CpmmMarketModel,
-} from "./market";
-import {
-  PositionModel,
-  computePayoutDistribution,
-  integrateOverPmf,
-} from "./probability";
+import { CpmmMarketModel } from "./market";
+import { computePayoutDistribution, integrateOverPmf } from "./probability";
 import { UserModel } from "./user";
 
 type NaiveKellyProps = {
@@ -18,14 +9,17 @@ type NaiveKellyProps = {
 };
 
 export type Outcome = "YES" | "NO";
+
 export type BetRecommendation = {
   amount: number;
   outcome: Outcome;
+  shares: number;
+  pAfter: number;
 };
 
 export type BetRecommendationFull = BetRecommendation & {
-  shares: number;
-  pAfter: number;
+  dailyRoi: number;
+  dailyTotalRoi: number;
 };
 
 export type AsyncUnivariateFunction = (input: number) => Promise<number>;
@@ -116,26 +110,15 @@ export function calculateNaiveKellyFraction({
 export function calculateNaiveKellyBet({
   bankroll,
   ...fractionOnlyProps
-}: NaiveKellyProps & { bankroll: number }): BetRecommendation {
+}: NaiveKellyProps & { bankroll: number }): {
+  amount: number;
+  outcome: Outcome;
+} {
   const { fraction, outcome } = calculateNaiveKellyFraction(fractionOnlyProps);
   return {
     amount: bankroll * fraction,
     outcome,
   };
-}
-
-/**
- * Differentiate a function numerically
- */
-async function asyncD(
-  f: AsyncUnivariateFunction,
-  x: number,
-  h = 1e-3
-): Promise<number> {
-  const fPlus = await f(x + h);
-  const fMinus = await f(x - h);
-
-  return (fPlus - fMinus) / (2 * h);
 }
 
 /**
@@ -151,18 +134,18 @@ function D(f: UnivariateFunction, x: number, h = 1e-3): number {
 /**
  * Solve equation of the form f(x) = 0 using Newton's method
  */
-export async function findRoot(
-  f: AsyncUnivariateFunction,
+export function findRoot(
+  f: UnivariateFunction,
   lowerBound: number,
   upperBound: number,
-  iterations = 10,
+  iterations = 20,
   tolerance = 1e-6
-): Promise<number> {
+): number {
   let x = (lowerBound + upperBound) / 2;
 
   for (let i = 0; i < iterations; i++) {
-    const fx = await f(x);
-    const dfx = await asyncD(f, x);
+    const fx = f(x);
+    const dfx = D(f, x);
 
     const incIdeal = dfx !== 0 ? fx / dfx : Math.random();
     // If the increment is very large, it's probably because we're near a stationary point,
@@ -190,6 +173,7 @@ export async function findRoot(
   }
 
   // If the solution is not found within the given number of iterations, return the last estimate.
+  console.log("Failed to find root solution");
   return x;
 }
 
@@ -203,7 +187,7 @@ export async function findRoot(
  *  - opportunity cost
  *  - loans properly
  */
-export async function calculateFullKellyBet({
+export function calculateFullKellyBet({
   estimatedProb,
   deferenceFactor,
   marketModel,
@@ -213,23 +197,20 @@ export async function calculateFullKellyBet({
   deferenceFactor: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
-}): Promise<BetRecommendation & { shares: number; pAfter: number }> {
-  const positions = userModel.positions
-    .sort((a, b) => b.probability * b.payout - a.probability * a.payout)
-    // TODO handle more positions
-    .slice(0, 12);
-  const balance =
-    userModel.balance -
-    userModel.positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
-  const illiquidEV = userModel.positions.reduce(
-    (acc, position) => acc + position.probability * position.payout,
-    0
+}): BetRecommendation {
+  const positions = userModel.positions.sort(
+    (a, b) => b.probability * b.payout - a.probability * a.payout
   );
+  const balance = userModel.balanceAfterLoans;
+  const illiquidEV = userModel.illiquidEV;
   const relativeIlliquidEV = illiquidEV / balance;
 
   console.log("Available:", { balance, illiquidEV, relativeIlliquidEV });
 
-  const illiquidPmf = computePayoutDistribution(positions, "cartesian");
+  const illiquidPmf = computePayoutDistribution(
+    positions,
+    positions.length > 12 ? "monte-carlo" : "cartesian"
+  );
 
   console.log("Illiquid PMF:", illiquidPmf.size);
 
@@ -242,29 +223,26 @@ export async function calculateFullKellyBet({
     bankroll: balance,
   });
 
-  const lowerBound = 0;
-  const upperBound = naiveKellyAmount;
-
   const englishOdds = (betEstimate: number) => {
     const { newShares } = marketModel.getBetInfo(outcome, betEstimate);
     return (newShares - betEstimate) / betEstimate;
   };
+
+  const pYes =
+    estimatedProb * deferenceFactor +
+    (1 - deferenceFactor) * startingMarketProb;
+  const qYes = 1 - pYes;
+  const pWin = outcome === "YES" ? pYes : qYes;
+  const qWin = 1 - pWin;
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, only considering the
    * user's balance, not other illiquid investments they have. This should give an optimal bet
    * _lower_ than the actual optimum
    */
-  const dEVdBetBalanceOnly = async (betEstimate: number) => {
+  const dEVdBetBalanceOnly = (betEstimate: number) => {
     const englishOddsEstimate = englishOdds(betEstimate);
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
-
-    const pYes =
-      estimatedProb * deferenceFactor +
-      (1 - deferenceFactor) * startingMarketProb;
-    const qYes = 1 - pYes;
-    const pWin = outcome === "YES" ? pYes : qYes;
-    const qWin = 1 - pWin;
 
     // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
     const A = pWin * balance * englishOddsDerivative;
@@ -289,16 +267,9 @@ export async function calculateFullKellyBet({
    * log wealth, which means scenarios where the illiquid investments don't pay out much hurt the EV more
    * than the other way around.
    */
-  const dEVdBetIlliquidCashedOut = async (betEstimate: number) => {
+  const dEVdBetIlliquidCashedOut = (betEstimate: number) => {
     const englishOddsEstimate = englishOdds(betEstimate);
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
-
-    const pYes =
-      estimatedProb * deferenceFactor +
-      (1 - deferenceFactor) * startingMarketProb;
-    const qYes = 1 - pYes;
-    const pWin = outcome === "YES" ? pYes : qYes;
-    const qWin = 1 - pWin;
 
     const f = betEstimate / balance;
     const I = relativeIlliquidEV;
@@ -316,25 +287,23 @@ export async function calculateFullKellyBet({
    * user's balance and modelling the range of outcomes of the illiquid investments. This should
    * give the true optimal bet, and be between the other two values
    */
-  const dEVdBet = async (betEstimate: number) => {
+  const dEVdBet = (betEstimate: number) => {
     const englishOddsEstimate = englishOdds(betEstimate);
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
-
-    const pYes =
-      estimatedProb * deferenceFactor +
-      (1 - deferenceFactor) * startingMarketProb;
-    const qYes = 1 - pYes;
-    const pWin = outcome === "YES" ? pYes : qYes;
-    const qWin = 1 - pWin;
 
     const f = betEstimate / balance;
 
     const integrand = (payout: number) => {
       const I = payout / balance;
 
+      // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
+      // treat cases where the user is betting _more_ than their balance as if they are betting
+      // extremely close to their balance (essentially apply a large negative penalty)
+      const bDenom = 1 + I - f > 0 ? 1 + I - f : 1e-12 / Math.abs(1 + I - f);
+
       const A =
         (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
-      const B = -qWin / (1 + I - f);
+      const B = -qWin / bDenom;
       const C =
         (pWin * f * englishOddsDerivative * balance) /
         (1 + I + f * englishOddsEstimate);
@@ -346,23 +315,31 @@ export async function calculateFullKellyBet({
     return integral;
   };
 
-  const optimalBetInitial = await findRoot(
+  const optimalBetBalanceOnly = findRoot(
     dEVdBetBalanceOnly,
-    lowerBound,
-    upperBound
+    0,
+    naiveKellyAmount
   );
-  const optimalBet = await findRoot(
-    dEVdBet,
-    optimalBetInitial * 0.5,
-    optimalBetInitial * 2
-  );
-  const optimalBetHigh = await findRoot(
-    dEVdBetIlliquidCashedOut,
-    optimalBetInitial * 0.5,
-    optimalBetInitial * 2
+  // If the market were prefectly liquid, and the users illiquid investments had 100% chance of
+  // paying out, this would be the optimal bet
+  const upperBound = Math.min(
+    optimalBetBalanceOnly * (1 + relativeIlliquidEV),
+    0.99 * balance
   );
 
-  console.log({ optimalBetInitial, optimalBet, optimalBetHigh });
+  const optimalBet = findRoot(dEVdBet, optimalBetBalanceOnly * 0.5, upperBound);
+  const optimalBetCashedOut = findRoot(
+    dEVdBetIlliquidCashedOut,
+    optimalBetBalanceOnly * 0.5,
+    upperBound
+  );
+
+  console.log({
+    optimalBetBalanceOnly,
+    optimalBet,
+    optimalBetCashedOut,
+    upperBound,
+  });
 
   // get the shares and pAfter
   const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
@@ -375,5 +352,81 @@ export async function calculateFullKellyBet({
     outcome,
     shares,
     pAfter: pAfter ?? 0,
+  };
+}
+
+export function getBetRecommendation({
+  estimatedProb,
+  deferenceFactor,
+  marketModel,
+  userModel,
+}: {
+  estimatedProb: number;
+  deferenceFactor: number;
+  marketModel: CpmmMarketModel;
+  userModel: UserModel;
+}): BetRecommendationFull {
+  const { amount, outcome, shares, pAfter } = calculateFullKellyBet({
+    estimatedProb,
+    deferenceFactor,
+    marketModel,
+    userModel,
+  });
+
+  if (!marketModel.market.closeTime) {
+    return {
+      amount,
+      outcome,
+      shares,
+      pAfter,
+      dailyRoi: 0,
+      dailyTotalRoi: 0,
+    };
+  }
+
+  const timeToCloseYears =
+    (marketModel.market.closeTime - Date.now()) / (1000 * 60 * 60 * 24 * 365);
+
+  const adjustedProb =
+    estimatedProb * deferenceFactor +
+    (1 - deferenceFactor) * marketModel.market.probability;
+
+  const pWin = outcome === "YES" ? adjustedProb : 1 - adjustedProb;
+  const EV = pWin * shares;
+
+  // dailyRoi is the answer to the question "Suppose you and 100 of your friends made this bet on independent but otherwise
+  // identical markets, and then pooled all your winnings at the end. What would your average daily return be?". In other
+  // words, if you are spreading your bets thinly across many markets, then your net daily return will be approximately
+  // the average of the dailyRoi of each bet.
+
+  // amount * dailyRoi ^ timeToCloseDays = EV <=> dailyRoi = Math.exp(Math.log(EV / amount) / timeToCloseDays)
+  const annualRoi = Math.exp(Math.log(EV / amount) / timeToCloseYears);
+
+  // dailyTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average daily return
+  // relative to your entire bankroll?". In other words, if you are putting all your eggs in one basket, then this will be
+  // your net daily return. Note that for a single market dailyTotalRoi is strictly less than dailyRoi.
+  //
+  // Relatedly, if you find a market with a dailyTotalRoi greater than the dailyRoi of other markets, then you should almost
+  // certainly pull money out of the other markets and put it into the first. Because even if you _only_ bet in that market
+  // from now on, you will still make more money than you would have if you had kept your money more spread around.
+  const totalYesEV = userModel.portfolioEV + shares - amount;
+  const totalNoEV = userModel.portfolioEV - amount;
+
+  const logEV = pWin * Math.log(totalYesEV) + (1 - pWin) * Math.log(totalNoEV);
+  // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
+  // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
+  const annualTotalRoi = Math.exp(
+    (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
+  );
+
+  console.log({ timeToCloseYears, annualRoi, annualTotalRoi });
+
+  return {
+    amount,
+    outcome,
+    shares,
+    pAfter,
+    dailyRoi: annualRoi,
+    dailyTotalRoi: annualTotalRoi,
   };
 }
