@@ -1,10 +1,11 @@
 import logger from "@/logger";
 import { getBinaryCpmmBetInfoWrapper, fetchMarketCached } from "./market";
 import {
-  BetModel,
+  PositionModel,
   computePayoutDistribution,
   integrateOverPmf,
 } from "./probability";
+import { UserModel } from "./user";
 
 type NaiveKellyProps = {
   marketProb: number;
@@ -256,28 +257,31 @@ export async function calculateFullKellyBetWithPortfolio({
   estimatedProb,
   deferenceFactor,
   marketSlug,
-  balance,
-  portfolioValue,
+  userModel,
 }: {
   estimatedProb: number;
   deferenceFactor: number;
   marketSlug: string;
-  balance: number;
-  portfolioValue: number;
+  userModel: UserModel;
 }): Promise<BetRecommendation & { shares: number; pAfter: number }> {
-  // TODO use the actual user's portfolio
-  // upper bound is calculateFullKellyBet with portfolioValue
-  // lower bound is calculateFullKellyBet with balance
-
-  // TODO set up a fake portfolio (of BetModels) and implement solver
-  const illiquidEV = 1000;
+  const positions = userModel.filledPositions
+    .sort((a, b) => b.probability * b.payout - a.probability * a.payout)
+    // TODO handle more positions
+    .slice(0, 12);
+  const balance =
+    userModel.balance -
+    userModel.filledPositions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
+  const illiquidEV = userModel.filledPositions.reduce(
+    (acc, position) => acc + position.probability * position.payout,
+    0
+  );
   const relativeIlliquidEV = illiquidEV / balance;
-  const bets: BetModel[] = [
-    { probability: 0.5, payout: relativeIlliquidEV * (1 / 0.5) },
-  ];
-  const illiquidPmf = computePayoutDistribution(bets, "cartesian");
 
-  // const illiquidEV = portfolioValue - balance;
+  console.log("Available:", { balance, illiquidEV, relativeIlliquidEV });
+
+  const illiquidPmf = computePayoutDistribution(positions, "cartesian");
+
+  console.log("Illiquid PMF:", illiquidPmf.size);
 
   const market = await fetchMarketCached({ slug: marketSlug });
   const startingMarketProb = (await market.getMarket())?.probability;
@@ -383,7 +387,9 @@ export async function calculateFullKellyBetWithPortfolio({
 
     const f = betEstimate / balance;
 
-    const integrand = (I: number) => {
+    const integrand = (payout: number) => {
+      const I = payout / balance;
+
       const A =
         (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
       const B = -qWin / (1 + I - f);

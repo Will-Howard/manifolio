@@ -208,6 +208,7 @@ export const buildCpmmMarketModel = async (slug: string) => {
   const market = await api.getMarket({ slug });
 
   // Fetch bets with pagination
+  // TODO combine with market.ts
   const allBets: Bet[] = [];
   let before: string | undefined = undefined;
 

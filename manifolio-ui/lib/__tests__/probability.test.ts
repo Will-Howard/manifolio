@@ -1,5 +1,5 @@
 import {
-  BetModel,
+  PositionModel,
   CDF,
   computeCumulativeDistribution,
   computeExpectedValue,
@@ -67,7 +67,7 @@ function assertValidDistribution(dist: Map<number, number>) {
 describe("Tests for probability logic", () => {
   test("For small number of bets: combined payout distibution is the same using cartesian product, convolutions, and direct sampling", () => {
     // Test function
-    const bets: BetModel[] = [
+    const bets: PositionModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },
     ];
@@ -104,7 +104,7 @@ describe("Tests for probability logic", () => {
 
   test("For small number of bets: combined cumulative distribution is as expected from manual calculation", () => {
     // TODO more thorough testing, this is just a sanity check
-    const bets: BetModel[] = [
+    const bets: PositionModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },
     ];
@@ -121,7 +121,7 @@ describe("Tests for probability logic", () => {
   });
 
   test("Calculating expected value by integrating over a probability mass function works", () => {
-    const bets: BetModel[] = [
+    const bets: PositionModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },
     ];

@@ -5,7 +5,7 @@ import {
   calculateFullKellyBetWithPortfolio,
 } from "@/lib/calculate";
 import { fetchMarketCached } from "@/lib/market";
-import { fetchUser } from "@/lib/user";
+import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { User } from "@/lib/vendor/manifold-sdk";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
@@ -57,6 +57,7 @@ export default function Home() {
 
   const [marketProb, setMarketProb] = useState<number | undefined>(undefined);
   const [user, setUser] = useState<User | undefined>(undefined);
+  const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
   const [kellyBet, setKellyBet] = useState<BetRecommendationFull | undefined>(
     undefined
   );
@@ -92,14 +93,14 @@ export default function Home() {
           marketSlug: slug,
           bankroll,
         });
-        const kellyWithPortfolioOptimalBet =
-          await calculateFullKellyBetWithPortfolio({
-            estimatedProb: probabilityInput,
-            deferenceFactor,
-            marketSlug: slug,
-            balance,
-            portfolioValue,
-          });
+        const kellyWithPortfolioOptimalBet = userModel
+          ? await calculateFullKellyBetWithPortfolio({
+              estimatedProb: probabilityInput,
+              deferenceFactor,
+              marketSlug: slug,
+              userModel,
+            })
+          : undefined;
 
         // vague attempt to stop race conditions
         if (slug !== parsedSlug || !marketProb) return;
@@ -123,6 +124,7 @@ export default function Home() {
     portfolioValue,
     probabilityInput,
     user,
+    userModel,
   ]);
 
   // Get the user
@@ -132,6 +134,7 @@ export default function Home() {
 
     const tryFetchUser = async (username: string) => {
       const fetchedUser = await fetchUser(username);
+      const userModel = await buildUserModel(username);
       if (!fetchedUser) {
         setFoundUser(false);
         return;
@@ -139,6 +142,7 @@ export default function Home() {
 
       setFoundUser(true);
       setUser(fetchedUser);
+      setUserModel(userModel);
     };
     tryFetchUser(parsedUsername);
   }, [usernameInput]);

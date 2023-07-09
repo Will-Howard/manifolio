@@ -11,9 +11,10 @@ export type PMF = Map<number, number>;
  */
 export type CDF = Map<number, number>;
 
-export type BetModel = {
+export type PositionModel = {
   probability: number;
   payout: number;
+  loan?: number;
 };
 
 /**
@@ -56,7 +57,7 @@ function cartesianProduct<T>(...allEntries: T[][]): T[][] {
 /**
  * Compute the probability mass function of the combined payouts of a set of bets using the cartesian product.
  */
-function computePayoutPMFCartesian(bets: BetModel[]): PMF {
+function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
   const outcomes = cartesianProduct(
     ...bets.map((bet) => [
       { payout: 0, probability: 1 - bet.probability },
@@ -92,7 +93,7 @@ function computePayoutPMFCartesian(bets: BetModel[]): PMF {
  * This is not used currently, but I think there is more room for performance optimisation using an approach like this
  * in future.
  */
-function computePayoutPMFConvolution(bets: BetModel[]): PMF {
+function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
   let combinedDistribution = new Map<number, number>([[0, 1]]);
 
   for (const bet of bets) {
@@ -113,7 +114,7 @@ function computePayoutPMFConvolution(bets: BetModel[]): PMF {
  * Given a set of individual bets, compute the probability mass function of the payouts.
  */
 export function computePayoutDistribution(
-  bets: BetModel[],
+  bets: PositionModel[],
   method: "convolution" | "cartesian" = "convolution"
 ): Map<number, number> {
   if (method === "convolution") {
@@ -136,7 +137,7 @@ export function computeExpectedValue(pmf: Map<number, number>): number {
  * CDF data structure is defined). Use the cartesian product to do this.
  */
 function computeCumulativeDistributionCartesian(
-  bets: BetModel[]
+  bets: PositionModel[]
 ): Map<number, number> {
   const outcomes = cartesianProduct(
     ...bets.map((bet) => [
@@ -173,7 +174,7 @@ function computeCumulativeDistributionCartesian(
  * Given a set of individual bets, compute the cumulative distribution of the payouts.
  */
 export function computeCumulativeDistribution(
-  bets: BetModel[],
+  bets: PositionModel[],
   method: "convolution" | "cartesian" = "cartesian"
 ): CDF {
   if (method === "convolution") {
