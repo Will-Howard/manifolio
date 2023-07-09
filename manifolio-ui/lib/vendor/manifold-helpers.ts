@@ -1,38 +1,8 @@
+/**
+ * These are functions and types copied from the main manifold codebase (https://github.com/manifoldmarkets/manifold)
+ */
 import { sortBy, sumBy, union } from "lodash";
-import { getManifoldApi } from "@/lib/manifold-api";
-import { Bet, FullMarket } from "./vendor/manifold-sdk";
-import { assertDefined } from "./strict";
-import logger from "@/logger";
-
-const cache: Record<string, CachedMarket> = {};
-
-export type CpmmState = {
-  pool: { [outcome: string]: number };
-  p: number;
-};
-
-export type Fees = {
-  creatorFee: number;
-  platformFee: number;
-  liquidityFee: number;
-};
-
-export const noFees: Fees = {
-  creatorFee: 0,
-  platformFee: 0,
-  liquidityFee: 0,
-};
-
-export type fill = {
-  // The id the bet matched against, or null if the bet was matched by the pool.
-  matchedBetId: string | null;
-  amount: number;
-  shares: number;
-  timestamp: number;
-  // If the fill is a sale, it means the matching bet has shares of the same outcome.
-  // I.e. -fill.shares === matchedBet.shares
-  isSale?: boolean;
-};
+import { Bet, FullMarket, LiteMarket, fill } from "./manifold-sdk";
 
 type LimitProps = {
   orderAmount: number; // Amount of limit order.
@@ -48,167 +18,29 @@ type LimitProps = {
 // Binary market limit order.
 export type LimitBet = Bet & LimitProps;
 
-class CachedMarket {
-  private timestamp: number;
-  private ttl: number = 1000 * 30; // 30 seconds
-  private slug: string;
-  private market: FullMarket | null;
-  private bets: Bet[] | null;
-  private balanceByUserId: Record<string, number> | null;
-  public marketPromise: Promise<FullMarket | undefined>;
-  public betsPromise: Promise<Bet[] | undefined>;
-  public balanceByUserIdPromise: Promise<Record<string, number> | undefined>;
-
-  constructor(slug: string) {
-    this.slug = slug;
-    this.timestamp = Date.now();
-    this.market = null;
-    this.bets = null;
-    this.balanceByUserId = null;
-
-    // Fetch market and bets when the instance is created
-    this.marketPromise = this.fetchMarket();
-    this.betsPromise = this.fetchBets();
-    this.balanceByUserIdPromise = this.fetchBalanceByUserId();
-  }
-
-  private async fetchMarket() {
-    try {
-      this.market = await getManifoldApi().getMarket({ slug: this.slug });
-      return this.market;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  private async fetchBets() {
-    try {
-      this.bets = await getManifoldApi().getBets({ marketSlug: this.slug });
-
-      if (this.bets.length > 999) {
-        throw new Error("Too many bets (Not implemented pagination))");
-      }
-
-      return this.bets;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  private async fetchBalanceByUserId() {
-    try {
-      // Waits for the bets to be fetched and return them
-      const bets = await this.getBets();
-      if (!bets) {
-        logger.error("Bets not found while fetching balanceByUserId");
-        return;
-      }
-
-      const unfilledBets = bets.filter(
-        (bet) => bet.isFilled === false && bet.isCancelled === false
-      );
-      const userIds = unfilledBets.map((bet) => bet.userId);
-
-      const users = await Promise.all(
-        userIds.map((userId) => getManifoldApi().getUser({ id: userId }))
-      );
-      this.balanceByUserId = users.reduce((acc, user) => {
-        if (user) {
-          acc[user.id] = user.balance;
-        }
-        return acc;
-      }, {} as { [userId: string]: number });
-      return this.balanceByUserId;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  public async getMarket() {
-    this.tryRefreshCache();
-    // Wait for the market to be fetched and return it
-    return this.market || (await this.marketPromise);
-  }
-
-  public async getBets() {
-    this.tryRefreshCache();
-    // Wait for the bets to be fetched and return them
-    return this.bets || (await this.betsPromise);
-  }
-
-  public async getBalanceByUserId() {
-    this.tryRefreshCache();
-    // Wait for the balanceByUserId to be calculated and return it
-    return this.balanceByUserId || (await this.balanceByUserIdPromise);
-  }
-
-  private tryRefreshCache() {
-    const currentTime = Date.now();
-    if (currentTime - this.timestamp > this.ttl) {
-      this.timestamp = currentTime;
-      this.marketPromise = this.fetchMarket();
-      this.betsPromise = this.fetchBets();
-      this.balanceByUserIdPromise = this.fetchBalanceByUserId();
-    }
-  }
-}
-
-export const getMarket = async ({
-  slug,
-}: {
-  slug: string;
-}): Promise<CachedMarket> => {
-  if (cache[slug] && cache[slug]) {
-    return cache[slug];
-  }
-
-  const cachedMarket = new CachedMarket(slug);
-  cache[slug] = cachedMarket;
-  return cachedMarket;
+type Fees = {
+  creatorFee: number;
+  platformFee: number;
+  liquidityFee: number;
 };
 
-export const getBinaryCpmmBetInfoWrapper = async (
-  outcome: "YES" | "NO",
-  betAmount: number,
-  marketSlug: string
-) => {
-  const market = await getMarket({ slug: marketSlug });
-  const bets = await market.getBets(); // TODO maybe refactor to hide less abstraction here
-  const balanceByUserId = await market.getBalanceByUserId();
-
-  if (!market || !bets || !balanceByUserId) {
-    logger.info("market or bets not found");
-    logger.info("market", market);
-    logger.info("bets", bets);
-    logger.info("market.balanceByUserId", balanceByUserId);
-    return { newP: 0, newShares: 0 };
-  }
-
-  const unfilledBets = bets.filter(
-    (bet) => bet.isFilled === false && bet.isCancelled === false
-  );
-
-  const { newPool, newP, newBet } = getBinaryCpmmBetInfo(
-    outcome,
-    betAmount,
-    (await market.getMarket()) as FullMarket,
-    undefined,
-    unfilledBets as LimitBet[], // TODO better type checking
-    balanceByUserId
-  );
-
-  const newShares = newBet.shares;
-  return { probAfter: getCpmmProbability(newPool, newP), newShares };
+const noFees: Fees = {
+  creatorFee: 0,
+  platformFee: 0,
+  liquidityFee: 0,
 };
 
-// BEGIN hacky shit, everything below here was taken from the manifold codebase
-
-export type CandidateBet<T extends Bet = Bet> = Omit<
+type CandidateBet<T extends Bet = Bet> = Omit<
   T,
   "id" | "userId" | "userAvatarUrl" | "userName" | "userUsername"
 >;
 
-export const removeUndefinedProps = <T extends object>(obj: T): T => {
+type CpmmState = {
+  pool: { [outcome: string]: number };
+  p: number;
+};
+
+const removeUndefinedProps = <T extends object>(obj: T): T => {
   const newObj = {} as T;
 
   for (const key of Object.keys(obj) as Array<keyof T>) {
@@ -222,15 +54,15 @@ export const removeUndefinedProps = <T extends object>(obj: T): T => {
 
 const EPSILON = 0.00000001;
 
-export function floatingEqual(a: number, b: number, epsilon = EPSILON) {
+function floatingEqual(a: number, b: number, epsilon = EPSILON) {
   return Math.abs(a - b) < epsilon;
 }
 
-export function floatingGreaterEqual(a: number, b: number, epsilon = EPSILON) {
+function floatingGreaterEqual(a: number, b: number, epsilon = EPSILON) {
   return a + epsilon >= b;
 }
 
-export function floatingLesserEqual(a: number, b: number, epsilon = EPSILON) {
+function floatingLesserEqual(a: number, b: number, epsilon = EPSILON) {
   return a - epsilon <= b;
 }
 
@@ -242,7 +74,7 @@ export function getCpmmProbability(
   return (p * NO) / ((1 - p) * YES + p * NO);
 }
 
-export function binarySearch(
+function binarySearch(
   min: number,
   max: number,
   comparator: (x: number) => number
@@ -283,15 +115,12 @@ function calculateCpmmShares(
     : n + bet - (k * (bet + y) ** -p) ** (1 / (1 - p));
 }
 
-export function getCpmmLiquidity(
-  pool: { [outcome: string]: number },
-  p: number
-) {
+function getCpmmLiquidity(pool: { [outcome: string]: number }, p: number) {
   const { YES, NO } = pool;
   return YES ** p * NO ** (1 - p);
 }
 
-export function addCpmmLiquidity(
+function addCpmmLiquidity(
   pool: { [outcome: string]: number },
   p: number,
   amount: number
@@ -313,7 +142,7 @@ export function addCpmmLiquidity(
   return { newPool, liquidity, newP };
 }
 
-export function getCpmmProbabilityAfterBetBeforeFees(
+function getCpmmProbabilityAfterBetBeforeFees(
   state: CpmmState,
   outcome: string,
   bet: number
@@ -330,11 +159,11 @@ export function getCpmmProbabilityAfterBetBeforeFees(
   return getCpmmProbability({ YES: newY, NO: newN }, p);
 }
 
-export const PLATFORM_FEE = 0;
-export const CREATOR_FEE = 0;
-export const LIQUIDITY_FEE = 0;
+const PLATFORM_FEE = 0;
+const CREATOR_FEE = 0;
+const LIQUIDITY_FEE = 0;
 
-export function getCpmmFees(state: CpmmState, bet: number, outcome: string) {
+function getCpmmFees(state: CpmmState, bet: number, outcome: string) {
   const prob = getCpmmProbabilityAfterBetBeforeFees(state, outcome, bet);
   const betP = outcome === "YES" ? 1 - prob : prob;
 
@@ -349,11 +178,7 @@ export function getCpmmFees(state: CpmmState, bet: number, outcome: string) {
   return { remainingBet, totalFees, fees };
 }
 
-export function calculateCpmmPurchase(
-  state: CpmmState,
-  bet: number,
-  outcome: string
-) {
+function calculateCpmmPurchase(state: CpmmState, bet: number, outcome: string) {
   const { pool, p } = state;
   const { remainingBet, fees } = getCpmmFees(state, bet, outcome);
 
@@ -374,7 +199,7 @@ export function calculateCpmmPurchase(
   return { shares, newPool, newP, fees };
 }
 
-export function getCpmmOutcomeProbabilityAfterBet(
+function getCpmmOutcomeProbabilityAfterBet(
   state: CpmmState,
   outcome: string,
   bet: number
@@ -386,7 +211,7 @@ export function getCpmmOutcomeProbabilityAfterBet(
 
 // Note: there might be a closed form solution for this.
 // If so, feel free to switch out this implementation.
-export function calculateCpmmAmountToProb(
+function calculateCpmmAmountToProb(
   state: CpmmState,
   prob: number,
   outcome: "YES" | "NO"
@@ -510,7 +335,7 @@ const computeFill = (
   return { maker, taker };
 };
 
-export const addObjects = <K extends string>(
+const addObjects = <K extends string>(
   obj1: Record<K, number>,
   obj2: Record<K, number>
 ) => {
@@ -524,7 +349,7 @@ export const addObjects = <K extends string>(
   return newObj;
 };
 
-export const computeFills = (
+const computeFills = (
   outcome: "YES" | "NO",
   betAmount: number,
   state: CpmmState,
@@ -533,10 +358,10 @@ export const computeFills = (
   balanceByUserId: { [userId: string]: number }
 ) => {
   if (isNaN(betAmount)) {
-    throw new Error("Invalid bet amount: ${betAmount}");
+    throw new Error(`Invalid bet amount: ${betAmount}`);
   }
   if (isNaN(limitProb ?? 0)) {
-    throw new Error("Invalid limitProb: ${limitProb}");
+    throw new Error(`Invalid limitProb: ${limitProb}`);
   }
 
   const sortedBets = sortBy(
@@ -598,10 +423,17 @@ export const computeFills = (
   return { takers, makers, totalFees, cpmmState, ordersToCancel };
 };
 
-const getBinaryCpmmBetInfo = (
+function assertDefined<T>(value: T | undefined): value is T {
+  if (value === undefined) {
+    throw new Error("Value is undefined");
+  }
+  return true;
+}
+
+export const getBinaryCpmmBetInfo = (
   outcome: "YES" | "NO",
   betAmount: number,
-  contract: FullMarket,
+  contract: LiteMarket,
   limitProb: number | undefined,
   unfilledBets: LimitBet[],
   balanceByUserId: { [userId: string]: number }
