@@ -183,9 +183,9 @@ export function findRoot(
  *  - illiquid investments
  *
  * Not yet accounting for:
- *  - _all_ illiquid investments
+ *  - illiquid investments completely properly... monte carlo sampling has its limits
  *  - opportunity cost
- *  - loans properly
+ *  - loans properly (TODO add an "acceptable risk of ruin" parameter, or otherwise report this)
  */
 export function calculateFullKellyBet({
   estimatedProb,
@@ -223,17 +223,17 @@ export function calculateFullKellyBet({
     bankroll: balance,
   });
 
-  const englishOdds = (betEstimate: number) => {
-    const { newShares } = marketModel.getBetInfo(outcome, betEstimate);
-    return (newShares - betEstimate) / betEstimate;
-  };
-
   const pYes =
     estimatedProb * deferenceFactor +
     (1 - deferenceFactor) * startingMarketProb;
   const qYes = 1 - pYes;
   const pWin = outcome === "YES" ? pYes : qYes;
   const qWin = 1 - pWin;
+
+  const englishOdds = (betEstimate: number) => {
+    const { newShares } = marketModel.getBetInfo(outcome, betEstimate);
+    return (newShares - betEstimate) / betEstimate;
+  };
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, only considering the
@@ -298,7 +298,9 @@ export function calculateFullKellyBet({
 
       // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
       // treat cases where the user is betting _more_ than their balance as if they are betting
-      // extremely close to their balance (essentially apply a large negative penalty)
+      // extremely close to their balance (essentially apply a large negative penalty).
+      // The "/ Math.abs(1 + I - f)" is to hopefully provide directional information to the root
+      // solver to improve numerical stability
       const bDenom = 1 + I - f > 0 ? 1 + I - f : 1e-12 / Math.abs(1 + I - f);
 
       const A =
@@ -320,8 +322,8 @@ export function calculateFullKellyBet({
     0,
     naiveKellyAmount
   );
-  // If the market were prefectly liquid, and the users illiquid investments had 100% chance of
-  // paying out, this would be the optimal bet
+  // If the market were perfectly liquid for bets above optimalBetBalanceOnly, and the users illiquid investments
+  // had a 100% chance of paying out, this would be the optimal bet
   const upperBound = Math.min(
     optimalBetBalanceOnly * (1 + relativeIlliquidEV),
     0.99 * balance
