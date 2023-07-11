@@ -2,7 +2,7 @@
  * These are functions and types copied from the main manifold codebase (https://github.com/manifoldmarkets/manifold)
  */
 import { sortBy, sumBy, union } from "lodash";
-import { Bet, FullMarket, LiteMarket, fill } from "./manifold-sdk";
+import { Bet, LiteMarket, fill } from "./manifold-sdk";
 
 type LimitProps = {
   orderAmount: number; // Amount of limit order.

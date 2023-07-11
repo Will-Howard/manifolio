@@ -1,10 +1,11 @@
 import { InputField } from "@/components/InputField";
 import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
 import { CpmmMarketModel, buildCpmmMarketModel } from "@/lib/market";
-import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
+import { UserModel, buildUserModel, getAuthedUsername } from "@/lib/user";
+import logger from "@/logger";
 import { Theme } from "@/styles/theme";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createUseStyles } from "react-jss";
 
 const COLUMN_MAX_WIDTH = "640px";
@@ -36,11 +37,13 @@ export default function Home() {
 
   /* User inputs */
   // TODO these will eventually have autocomplete, they should be their own components
+  const [apiKeyInput, setApiKeyInput] = useState<string>();
   const [usernameInput, setUsernameInput] = useState<string>("WilliamHoward");
   const [marketInput, setMarketInput] = useState<string>(
     "will-i-decide-that-there-is-a-bette"
   );
 
+  const [foundApiKey, setFoundApiKey] = useState<boolean>(false);
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [foundMarket, setFoundMarket] = useState<boolean>(false);
 
@@ -57,7 +60,6 @@ export default function Home() {
 
   const marketProb = marketModel?.market.probability;
 
-  // TODO hide more of this handling in the lib code
   useEffect(() => {
     const tryCalculate = async () => {
       if (!marketModel || !userModel) return;
@@ -76,20 +78,30 @@ export default function Home() {
     void tryCalculate();
   }, [deferenceFactor, marketModel, probabilityInput, userModel]);
 
+  // Fetch the authenticated user
+  useEffect(() => {
+    if (!apiKeyInput || apiKeyInput.length == 0) return;
+
+    const tryFetchUser = async (apiKey: string) => {
+      const authedUsername = await getAuthedUsername(apiKey);
+
+      if (!authedUsername) return;
+
+      setFoundApiKey(true);
+      setUsernameInput(authedUsername);
+    };
+    void tryFetchUser(apiKeyInput);
+  }, [apiKeyInput]);
+
   // Fetch the user
   useEffect(() => {
     if (!usernameInput || usernameInput.length == 0) return;
     const parsedUsername = usernameInput.split("/").pop() || "";
 
     const tryFetchUser = async (username: string) => {
-      const fetchedUser = await fetchUser(username);
       const userModel = await buildUserModel(username);
-      if (!fetchedUser) {
-        setFoundUser(false);
-        return;
-      }
 
-      setFoundUser(true);
+      setFoundUser(!!userModel);
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
@@ -118,6 +130,26 @@ export default function Home() {
     void tryFetchMarket(parsedSlug);
   }, [marketInput]);
 
+  const placeBet = useCallback(async () => {
+    if (!betRecommendation || !marketModel?.market.id) return;
+
+    const { amount, outcome } = betRecommendation;
+
+    const res = await fetch("/api/bet", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: 1,
+        marketId: marketModel.market.id,
+        outcome,
+        apiKey: apiKeyInput,
+      }),
+    });
+    logger.info("Created bet:", res);
+  }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
+
   const naiveKellyOutcome =
     probabilityInput > (marketProb ?? probabilityInput) ? "YES" : "NO";
 
@@ -138,6 +170,21 @@ export default function Home() {
       <main className={classes.main}>
         <div className={classes.centralColumn}>
           <InputField
+            label="API key (required only for placing bets):"
+            id="apiKeyInput"
+            type="text"
+            placeholder='Find in "Edit Profile" on Manifold'
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            status={
+              apiKeyInput !== undefined && apiKeyInput.length > 0
+                ? foundApiKey
+                  ? "success"
+                  : "error"
+                : undefined
+            }
+          />
+          <InputField
             label="Manifold username or url:"
             id="usernameInput"
             type="text"
@@ -145,6 +192,7 @@ export default function Home() {
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
             status={foundUser ? "success" : "error"}
+            disabled={!!apiKeyInput && apiKeyInput.length > 0}
           />
           {userModel && (
             <div>
@@ -237,6 +285,10 @@ export default function Home() {
                   %
                 </p>
               </div>
+              {/* Place bet */}
+              <button disabled={!foundApiKey} onClick={placeBet}>
+                Place bet
+              </button>
             </>
           )}
         </div>

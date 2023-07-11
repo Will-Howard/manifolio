@@ -1,19 +1,7 @@
 import { Dictionary, groupBy } from "lodash";
-import { getManifoldApi } from "./manifold-api";
+import { getManifoldApi, initManifoldApi } from "./manifold-api";
 import type { PositionModel as PositionModel } from "./probability";
 import type { Bet, User } from "./vendor/manifold-sdk";
-
-export const fetchUser = async (
-  username: string
-): Promise<User | undefined> => {
-  try {
-    const fetchedUser = await getManifoldApi().getUser({ username });
-    return fetchedUser;
-  } catch (e) {
-    console.error(e);
-    return undefined;
-  }
-};
 
 export class UserModel {
   balance: number;
@@ -36,10 +24,18 @@ export class UserModel {
   }
 }
 
-export const buildUserModel = async (username: string): Promise<UserModel> => {
+export const buildUserModel = async (
+  username: string
+): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
-  const manifoldUser = await api.getUser({ username });
+  let manifoldUser: User | undefined;
+  try {
+    manifoldUser = await api.getUser({ username });
+  } catch (e) {
+    console.error(e);
+    return undefined;
+  }
 
   // Fetch bets with pagination
   // TODO combine with market.ts
@@ -94,7 +90,6 @@ export const buildUserModel = async (username: string): Promise<UserModel> => {
       }
     }, 0);
     const netLoan = bets.reduce((acc, bet) => acc + (bet.loanAmount ?? 0), 0);
-    console.log(`${netYesShares} net shares in ${marketId}`);
 
     if (Math.abs(netYesShares) >= 1) {
       cleanedContractsBetOn[marketId] = {
@@ -140,4 +135,17 @@ export const buildUserModel = async (username: string): Promise<UserModel> => {
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 
   return new UserModel(manifoldUser.balance, loans, positions);
+};
+
+export const getAuthedUsername = async (
+  apiKey: string
+): Promise<string | undefined> => {
+  initManifoldApi(apiKey);
+
+  try {
+    const user = await getManifoldApi().getMe();
+    return user?.username;
+  } catch (e) {
+    return undefined;
+  }
 };

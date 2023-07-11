@@ -26,6 +26,7 @@ interface InputFieldProps {
   value: string | number | readonly string[] | undefined;
   placeholder?: string;
   readOnly?: boolean;
+  disabled?: boolean;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   decimalPlaces?: number;
   significantFigures?: number;
@@ -88,6 +89,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         value={displayValue}
         placeholder={props.placeholder}
         readOnly={props.readOnly}
+        disabled={props.disabled}
         onChange={handleInputChange}
         className={inputClass}
       />
