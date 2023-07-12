@@ -1,12 +1,18 @@
+import classNames from "classnames";
 import React, { ChangeEvent } from "react";
 import { createUseStyles } from "react-jss";
 
 const useStyles = createUseStyles({
   calculatorRow: {
-    marginBottom: "16px",
+    marginBottom: 16,
     "& input": {
       marginLeft: 8,
     },
+  },
+  input: {
+    lineHeight: "26px",
+    borderRadius: 4,
+    padding: "0 6px",
   },
   inputError: {
     border: "1px solid red",
@@ -51,6 +57,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
   const classes = useStyles();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    console.log(e);
     if (props.type === "number") {
       const value = parseFloat(e.target.value);
       const roundedValue = applyRounding(
@@ -91,7 +98,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         readOnly={props.readOnly}
         disabled={props.disabled}
         onChange={handleInputChange}
-        className={inputClass}
+        className={classNames(classes.input, inputClass)}
       />
     </div>
   );

@@ -18,6 +18,9 @@ type Breakpoints = {
 
 export type Theme = {
   background: string;
+  border: {
+    main: string;
+  };
   primary: string;
   primaryLight: string;
   headingFont: string;
@@ -26,12 +29,16 @@ export type Theme = {
 };
 
 export const theme: Theme = {
-  background: "#f7f3ef",
+  background: "#F5F5F5",
+  border: {
+    main: "#2D0070",
+  },
   primary: "#002654",
   primaryLight: "#002674",
   headingFont: `Gill Sans, Gill Sans MT, ${lato.style.fontFamily}, Calibri, sans-serif`,
   bodyFont:
     "Petrona, Iowan Old Style, Apple Garamond, Baskerville, Times New Roman, Times, Source Serif Pro, serif",
+  manaFont: "Figtree",
   breakpoints: {
     xs: `@media screen and (max-width: ${xs}px)`,
     sm: `@media screen and (max-width: ${sm}px)`,

@@ -375,6 +375,17 @@ export function getBetRecommendation({
     marketModel,
     userModel,
   });
+  if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
+    return {
+      amount: 0,
+      outcome: "YES",
+      shares: 0,
+      pAfter: 0,
+      dailyRoi: 0,
+      dailyTotalRoi: 0,
+      // TODO add explicited error code
+    };
+  }
 
   const { amount, outcome, shares, pAfter } = calculateFullKellyBet({
     estimatedProb,
