@@ -358,7 +358,7 @@ export function calculateFullKellyBet({
   };
 }
 
-export function getBetRecommendation({
+function getBetRecommendationInner({
   estimatedProb,
   deferenceFactor,
   marketModel,
@@ -369,24 +369,6 @@ export function getBetRecommendation({
   marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): BetRecommendationFull {
-  logger.debug("getBetRecommendation", {
-    estimatedProb,
-    deferenceFactor,
-    marketModel,
-    userModel,
-  });
-  if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
-    return {
-      amount: 0,
-      outcome: "YES",
-      shares: 0,
-      pAfter: 0,
-      dailyRoi: 0,
-      dailyTotalRoi: 0,
-      // TODO add explicited error code
-    };
-  }
-
   const { amount, outcome, shares, pAfter } = calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
@@ -450,4 +432,48 @@ export function getBetRecommendation({
     dailyRoi: annualRoi,
     dailyTotalRoi: annualTotalRoi,
   };
+}
+
+export function getBetRecommendation({
+  estimatedProb,
+  deferenceFactor,
+  marketModel,
+  userModel,
+}: {
+  estimatedProb: number;
+  deferenceFactor: number;
+  marketModel: CpmmMarketModel;
+  userModel: UserModel;
+}): BetRecommendationFull {
+  const errorFallback = {
+    amount: 0,
+    outcome: "YES",
+    shares: 0,
+    pAfter: 0,
+    dailyRoi: 0,
+    dailyTotalRoi: 0,
+    // TODO add explicited error code
+  } as const;
+
+  logger.debug("getBetRecommendation", {
+    estimatedProb,
+    deferenceFactor,
+    marketModel,
+    userModel,
+  });
+  if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
+    return errorFallback;
+  }
+
+  try {
+    return getBetRecommendationInner({
+      estimatedProb,
+      deferenceFactor,
+      marketModel,
+      userModel,
+    });
+  } catch (e) {
+    logger.error(e);
+    return errorFallback;
+  }
 }

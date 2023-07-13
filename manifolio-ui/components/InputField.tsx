@@ -59,7 +59,6 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
   const classes = useStyles();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    console.log(e);
     if (props.type === "number") {
       const value = parseFloat(e.target.value);
       const roundedValue = applyRounding(

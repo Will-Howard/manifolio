@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { CpmmMarketModel, buildCpmmMarketModel } from "@/lib/market";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
@@ -14,7 +14,9 @@ const useStyles = createUseStyles(() => ({
   },
 }));
 
-function getSlug(input: string): string {
+function getSlug(input: string | undefined): string {
+  if (!input) return "";
+
   try {
     // Create a new URL object with the input. If the input is a valid URL, this will succeed.
     const url = new URL(input);
@@ -29,8 +31,8 @@ function getSlug(input: string): string {
 }
 
 interface MarketSectionProps {
-  marketInput: string;
-  setMarketInput: React.Dispatch<React.SetStateAction<string>>;
+  marketInput: string | undefined;
+  setMarketInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   marketModel: CpmmMarketModel | undefined;
   setMarketModel: React.Dispatch<
     React.SetStateAction<CpmmMarketModel | undefined>
@@ -81,7 +83,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
           label="Market"
           id="marketInput"
           type="text"
-          placeholder="Slug or url. E.g. will-scott-alexander-blog-about-sil or https://manifold.markets/xyz/will-scott-alexander-blog-about-sil"
+          placeholder="Url or slug. E.g. will-scott-alexander-blog-about-sil or https://manifold.markets/xyz/will-scott-alexander-blog-about-sil"
           value={marketInput}
           onChange={(e) => setMarketInput(e.target.value)}
           status={inputStatus}

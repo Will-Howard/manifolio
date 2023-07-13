@@ -6,6 +6,7 @@ import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
 import logger from "@/logger";
 import { throttle } from "lodash";
 import { createUseStyles } from "react-jss";
+import { useLocalStorageState } from "./hooks/useLocalStorageState";
 
 const useStyles = createUseStyles(() => ({
   inputSection: {
@@ -32,8 +33,14 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 }) => {
   const classes = useStyles();
 
-  const [probabilityInput, setProbabilityInput] = useState(50);
-  const [deferenceFactor, setDeferenceFactor] = useState(0.5);
+  const [probabilityInput, setProbabilityInput] = useLocalStorageState(
+    "probabilityInput",
+    50
+  );
+  const [deferenceFactor, setDeferenceFactor] = useLocalStorageState(
+    "deferenceFactor",
+    0.5
+  );
   const [betRecommendation, setBetRecommendation] = useState<
     BetRecommendationFull | undefined
   >(undefined);

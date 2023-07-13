@@ -1,5 +1,5 @@
 import { Dictionary, groupBy } from "lodash";
-import { getManifoldApi, initManifoldApi } from "./manifold-api";
+import { getManifoldApi } from "./manifold-api";
 import type { PositionModel as PositionModel } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 

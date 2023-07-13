@@ -1,6 +1,7 @@
 import CalculatorSection from "@/components/CalculatorSection";
 import MarketSection from "@/components/MarketSection";
 import { UserSection } from "@/components/UserSection";
+import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
 import { Theme } from "@/styles/theme";
@@ -36,10 +37,12 @@ const useStyles = createUseStyles((theme: Theme) => ({
 export default function Home() {
   const classes = useStyles();
 
-  const [apiKeyInput, setApiKeyInput] = useState<string>();
-  const [marketInput, setMarketInput] = useState<string>(
-    "will-i-decide-that-there-is-a-bette"
-  );
+  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
+    string | undefined
+  >("apiKeyInput", undefined);
+  const [marketInput, setMarketInput] = useLocalStorageState<
+    string | undefined
+  >("marketInput", undefined);
 
   const [foundAuthedUser, setFoundAuthedUser] = useState<boolean>(false);
 

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { UserModel, buildUserModel, getAuthedUsername } from "@/lib/user";
+import { UserModel, buildUserModel } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
+import { useLocalStorageState } from "./hooks/useLocalStorageState";
 
 const useStyles = createUseStyles(() => ({
   inputSection: {
@@ -32,7 +33,9 @@ export const UserSection: React.FC<UserSectionProps> = ({
 }) => {
   const classes = useStyles();
 
-  const [usernameInput, setUsernameInput] = useState<string>("WilliamHoward");
+  const [usernameInput, setUsernameInput] = useLocalStorageState<
+    string | undefined
+  >("usernameInput", undefined);
   const [foundUser, setFoundUser] = useState<boolean>(false);
 
   // Fetch the authenticated user
@@ -58,7 +61,7 @@ export const UserSection: React.FC<UserSectionProps> = ({
       setUsernameInput(authedUsername);
     };
     void tryFetchUser(apiKeyInput);
-  }, [apiKeyInput, setFoundAuthedUser]);
+  }, [apiKeyInput, setFoundAuthedUser, setUsernameInput]);
 
   // Fetch the user
   useEffect(() => {
