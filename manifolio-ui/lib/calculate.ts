@@ -1,3 +1,4 @@
+import logger from "@/logger";
 import { CpmmMarketModel } from "./market";
 import { computePayoutDistribution, integrateOverPmf } from "./probability";
 import { UserModel } from "./user";
@@ -165,7 +166,7 @@ export function findRoot(
 
     if (Math.abs(xNext - x) < tolerance) {
       // If the difference between x and xNext is less than the tolerance, we found a solution.
-      console.log("Found root solution");
+      // logger.debug("Found root solution");
       return xNext;
     }
 
@@ -173,7 +174,7 @@ export function findRoot(
   }
 
   // If the solution is not found within the given number of iterations, return the last estimate.
-  console.log("Failed to find root solution");
+  logger.warn("Failed to find root solution");
   return x;
 }
 
@@ -205,14 +206,14 @@ export function calculateFullKellyBet({
   const illiquidEV = userModel.illiquidEV;
   const relativeIlliquidEV = illiquidEV / balance;
 
-  console.log("Available:", { balance, illiquidEV, relativeIlliquidEV });
+  logger.debug("Available:", { balance, illiquidEV, relativeIlliquidEV });
 
   const illiquidPmf = computePayoutDistribution(
     positions,
     positions.length > 12 ? "monte-carlo" : "cartesian"
   );
 
-  console.log("Illiquid PMF:", illiquidPmf.size);
+  logger.debug("Illiquid PMF:", illiquidPmf.size);
 
   const startingMarketProb = marketModel.market.probability;
 
@@ -336,7 +337,7 @@ export function calculateFullKellyBet({
     upperBound
   );
 
-  console.log({
+  logger.debug({
     optimalBetBalanceOnly,
     optimalBet,
     optimalBetCashedOut,
@@ -368,6 +369,24 @@ export function getBetRecommendation({
   marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): BetRecommendationFull {
+  logger.debug("getBetRecommendation", {
+    estimatedProb,
+    deferenceFactor,
+    marketModel,
+    userModel,
+  });
+  if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
+    return {
+      amount: 0,
+      outcome: "YES",
+      shares: 0,
+      pAfter: 0,
+      dailyRoi: 0,
+      dailyTotalRoi: 0,
+      // TODO add explicited error code
+    };
+  }
+
   const { amount, outcome, shares, pAfter } = calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
@@ -421,7 +440,7 @@ export function getBetRecommendation({
     (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
   );
 
-  console.log({ timeToCloseYears, annualRoi, annualTotalRoi });
+  logger.debug({ timeToCloseYears, annualRoi, annualTotalRoi });
 
   return {
     amount,

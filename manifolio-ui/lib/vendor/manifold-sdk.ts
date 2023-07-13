@@ -34,7 +34,7 @@ const isEmpty = (obj: Record<string, unknown>) => Object.keys(obj).length === 0;
 const log = (message: string) => {
   if (process.env.NODE_ENV === "production") return;
 
-  logger.info(message);
+  // logger.info(message);
 };
 
 const logError = (message: Error) => {
