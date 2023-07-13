@@ -1,18 +1,25 @@
+import classNames from "classnames";
 import React, { ChangeEvent } from "react";
 import { createUseStyles } from "react-jss";
 
 const useStyles = createUseStyles({
   calculatorRow: {
-    marginBottom: "16px",
-    "& input": {
-      marginLeft: 8,
-    },
+    marginBottom: 16,
+    display: "flex",
+    flexDirection: "column",
+  },
+  input: {
+    lineHeight: "26px",
+    borderRadius: 4,
+    padding: "0 6px",
+    margin: "8px 0",
+    width: "80%",
   },
   inputError: {
-    border: "1px solid red",
+    border: "2px solid red",
   },
   inputSuccess: {
-    border: "1px solid green",
+    border: "2px solid green",
   },
 });
 
@@ -26,10 +33,12 @@ interface InputFieldProps {
   value: string | number | readonly string[] | undefined;
   placeholder?: string;
   readOnly?: boolean;
+  disabled?: boolean;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   decimalPlaces?: number;
   significantFigures?: number;
   status?: "error" | "success" | undefined;
+  className?: string;
 }
 
 const applyRounding = (
@@ -50,6 +59,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
   const classes = useStyles();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    console.log(e);
     if (props.type === "number") {
       const value = parseFloat(e.target.value);
       const roundedValue = applyRounding(
@@ -77,7 +87,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
       : "";
 
   return (
-    <div className={classes.calculatorRow}>
+    <div className={classNames(classes.calculatorRow, props.className)}>
       <label htmlFor={props.id}>{props.label}</label>
       <input
         id={props.id}
@@ -88,8 +98,9 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         value={displayValue}
         placeholder={props.placeholder}
         readOnly={props.readOnly}
+        disabled={props.disabled}
         onChange={handleInputChange}
-        className={inputClass}
+        className={classNames(classes.input, inputClass)}
       />
     </div>
   );
