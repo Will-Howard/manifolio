@@ -77,13 +77,6 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
     ? applyRounding(value, props.decimalPlaces, props.significantFigures)
     : value;
 
-  const inputClass =
-    props.status === "error"
-      ? classes.inputError
-      : props.status === "success"
-      ? classes.inputSuccess
-      : "";
-
   return (
     <div className={classNames(classes.calculatorRow, props.className)}>
       <label htmlFor={props.id}>{props.label}</label>
@@ -98,7 +91,10 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         readOnly={props.readOnly}
         disabled={props.disabled}
         onChange={handleInputChange}
-        className={classNames(classes.input, inputClass)}
+        className={classNames(classes.input, {
+          [classes.inputSuccess]: props.status === "success",
+          [classes.inputError]: props.status === "error",
+        })}
       />
     </div>
   );

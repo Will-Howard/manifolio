@@ -1,7 +1,13 @@
-import { useEffect, useMemo } from "react";
-import { CpmmMarketModel, buildCpmmMarketModel } from "@/lib/market";
+import { useEffect, useState } from "react";
+import {
+  CpmmMarketModel,
+  buildCpmmMarketModel,
+  fetchMarket,
+} from "@/lib/market";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
+import { FullMarket } from "@/lib/vendor/manifold-sdk";
+import { Classes } from "jss";
 
 const useStyles = createUseStyles(() => ({
   inputSection: {
@@ -11,6 +17,33 @@ const useStyles = createUseStyles(() => ({
   },
   inputField: {
     flex: 1,
+  },
+  profileContainer: {
+    display: "flex",
+    paddingRight: "6%",
+  },
+  avatar: {
+    borderRadius: "50%",
+    margin: "8px 24px 8px 4px",
+  },
+  detailsTitle: {
+    fontWeight: 600,
+    margin: "4px 0",
+  },
+  detailsContainer: {
+    display: "flex",
+    flexDirection: "column",
+    maxWidth: 250,
+    width: "100%",
+  },
+  detailsRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  value: {
+    fontWeight: 600,
   },
 }));
 
@@ -30,6 +63,22 @@ function getSlug(input: string | undefined): string {
   }
 }
 
+interface DetailProps {
+  label: string;
+  value: string;
+  isInverse?: boolean;
+  classes: Classes;
+}
+
+const Detail: React.FC<DetailProps> = ({ label, value, classes }) => {
+  return (
+    <div className={classes.detailsRow}>
+      <span>{label}:</span>
+      <span className={classes.value}>{value}</span>
+    </div>
+  );
+};
+
 interface MarketSectionProps {
   marketInput: string | undefined;
   setMarketInput: React.Dispatch<React.SetStateAction<string | undefined>>;
@@ -42,39 +91,45 @@ interface MarketSectionProps {
 const MarketSection: React.FC<MarketSectionProps> = ({
   marketInput,
   setMarketInput,
-  marketModel,
   setMarketModel,
 }) => {
   const classes = useStyles();
 
+  const [market, setMarket] = useState<FullMarket | undefined>(undefined);
+  const [foundMarket, setFoundMarket] = useState<boolean>(false);
+
   useEffect(() => {
+    console.log("marketInput", marketInput);
     if (!marketInput || marketInput.length === 0) return;
     const parsedSlug = getSlug(marketInput);
 
     const tryFetchMarket = async (slug: string) => {
-      const marketModel = await buildCpmmMarketModel(slug);
+      const market = await fetchMarket(slug);
+      setFoundMarket(!!market);
 
-      // If e.g. the slug is not valid, don't update anything
-      if (!marketModel) {
-        return;
-      }
+      if (!market) return;
+      setMarket(market);
 
-      // vague attempt to stop race conditions
-      if (slug !== parsedSlug) return;
-
+      // slow
+      const marketModel = await buildCpmmMarketModel(market);
       setMarketModel(marketModel);
     };
     void tryFetchMarket(parsedSlug);
   }, [marketInput, setMarketModel]);
 
-  const marketMatchesInput = useMemo(
-    () =>
-      marketModel?.market.url &&
-      getSlug(marketModel.market.url) === getSlug(marketInput),
-    [marketInput, marketModel?.market.url]
-  );
+  const inputStatus = marketInput
+    ? foundMarket
+      ? "success"
+      : "error"
+    : undefined;
 
-  const inputStatus = marketMatchesInput ? "success" : "error";
+  const {
+    question = "—",
+    probability = undefined,
+    creatorAvatarUrl = "https://manifold.markets/logo.svg",
+  } = market || {};
+
+  // TODO truncate question around 2 lines on mobile
 
   return (
     <>
@@ -90,14 +145,28 @@ const MarketSection: React.FC<MarketSectionProps> = ({
           className={classes.inputField}
         />
       </div>
-      {marketModel?.market.probability !== undefined && (
-        <div>
-          <p>
-            Market probability:{" "}
-            {(marketModel?.market.probability * 100).toFixed(1)}%
-          </p>
+      <div className={classes.profileContainer}>
+        <img
+          src={creatorAvatarUrl}
+          alt="Market creator avatar"
+          className={classes.avatar}
+          width="80"
+          height="80"
+        />
+        <div className={classes.detailsContainer}>
+          <div className={classes.detailsTitle}>{question}</div>
+          <Detail
+            label="Market probability"
+            value={
+              probability === undefined
+                ? "—"
+                : `${(probability * 100).toFixed(1)}%`
+            }
+            classes={classes}
+          />
+          {/* TODO your position */}
         </div>
-      )}
+      </div>
     </>
   );
 };

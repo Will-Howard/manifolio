@@ -16,12 +16,15 @@ const useStyles = createUseStyles({
   },
   profileContainer: {
     display: "flex",
-    alignItems: "center",
     paddingRight: "6%",
   },
   avatar: {
     borderRadius: "50%",
     margin: "8px 24px 8px 4px",
+  },
+  detailsTitle: {
+    fontWeight: 600,
+    margin: "4px 0",
   },
   detailsContainer: {
     display: "flex",
@@ -73,8 +76,6 @@ const Detail: React.FC<DetailProps> = ({
     </div>
   );
 };
-
-// ...in the UserSection component:
 
 interface UserSectionProps {
   apiKeyInput?: string;
@@ -194,7 +195,7 @@ const UserSection: React.FC<UserSectionProps> = ({
           height="80"
         />
         <div className={classes.detailsContainer}>
-          <div>{name}</div>
+          <div className={classes.detailsTitle}>{name}</div>
           <Detail
             label="Balance"
             value={userModel?.balance}
