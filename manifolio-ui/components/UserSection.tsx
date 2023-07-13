@@ -40,7 +40,17 @@ export const UserSection: React.FC<UserSectionProps> = ({
     if (!apiKeyInput || apiKeyInput.length == 0) return;
 
     const tryFetchUser = async (apiKey: string) => {
-      const authedUsername = await getAuthedUsername(apiKey);
+      const res = await fetch("/api/me", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          apiKey,
+        }),
+      });
+
+      const { username: authedUsername } = await res.json();
 
       if (!authedUsername) return;
 

@@ -1,7 +1,7 @@
 import { Dictionary, groupBy } from "lodash";
 import { getManifoldApi, initManifoldApi } from "./manifold-api";
 import type { PositionModel as PositionModel } from "./probability";
-import type { Bet, User } from "./vendor/manifold-sdk";
+import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 
 export class UserModel {
   balance: number;
@@ -140,10 +140,10 @@ export const buildUserModel = async (
 export const getAuthedUsername = async (
   apiKey: string
 ): Promise<string | undefined> => {
-  initManifoldApi(apiKey);
+  const api = new Manifold(apiKey);
 
   try {
-    const user = await getManifoldApi().getMe();
+    const user = await api.getMe();
     return user?.username;
   } catch (e) {
     return undefined;
