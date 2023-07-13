@@ -4,6 +4,7 @@ import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type { User } from "@/lib/vendor/manifold-sdk";
+import { Classes } from "jss";
 
 const useStyles = createUseStyles({
   inputSection: {
@@ -34,7 +35,46 @@ const useStyles = createUseStyles({
     justifyContent: "space-between",
     width: "100%",
   },
+  positive: {
+    color: "#0f9889",
+    fontWeight: 600,
+  },
+  negative: {
+    color: "#db1f00",
+    fontWeight: 600,
+  },
 });
+
+interface DetailProps {
+  label: string;
+  value: number | undefined;
+  isInverse?: boolean;
+  classes: Classes;
+}
+
+const Detail: React.FC<DetailProps> = ({
+  label,
+  value,
+  isInverse,
+  classes,
+}) => {
+  // flip the sign if isInverse is true
+  const isPositive = (value !== undefined && value >= 0) !== isInverse;
+
+  const formattedValue =
+    value !== undefined ? parseInt(value.toFixed(0)).toLocaleString() : "—";
+
+  return (
+    <div className={classes.detailsRow}>
+      <span>{label}:</span>
+      <span className={isPositive ? classes.positive : classes.negative}>
+        M{formattedValue}
+      </span>
+    </div>
+  );
+};
+
+// ...in the UserSection component:
 
 interface UserSectionProps {
   apiKeyInput?: string;
@@ -155,33 +195,22 @@ const UserSection: React.FC<UserSectionProps> = ({
         />
         <div className={classes.detailsContainer}>
           <div>{name}</div>
-          <div className={classes.detailsRow}>
-            <span>Balance:</span>
-            <span>
-              M
-              {userModel
-                ? parseInt(userModel.balance.toFixed(0)).toLocaleString()
-                : "—"}
-            </span>
-          </div>
-          <div className={classes.detailsRow}>
-            <span>Total loans:</span>
-            <span>
-              M
-              {userModel
-                ? parseInt(userModel.loans.toFixed(0)).toLocaleString()
-                : "—"}
-            </span>
-          </div>
-          <div className={classes.detailsRow}>
-            <span>Portfolio value:</span>
-            <span>
-              M
-              {userModel
-                ? parseInt(userModel.portfolioEV.toFixed(0)).toLocaleString()
-                : "—"}
-            </span>
-          </div>
+          <Detail
+            label="Balance"
+            value={userModel?.balance}
+            classes={classes}
+          />
+          <Detail
+            label="Total loans"
+            value={userModel?.loans}
+            isInverse
+            classes={classes}
+          />
+          <Detail
+            label="Portfolio value"
+            value={userModel?.portfolioEV}
+            classes={classes}
+          />
         </div>
       </div>
     </>
