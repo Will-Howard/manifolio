@@ -4,6 +4,7 @@ import type { PositionModel as PositionModel } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 
 export class UserModel {
+  user: User;
   balance: number;
   loans: number;
   balanceAfterLoans: number;
@@ -11,7 +12,13 @@ export class UserModel {
   illiquidEV: number;
   portfolioEV: number;
 
-  constructor(balance: number, loans: number, positions: PositionModel[]) {
+  constructor(
+    user: User,
+    balance: number,
+    loans: number,
+    positions: PositionModel[]
+  ) {
+    this.user = user;
     this.balance = balance;
     this.loans = loans;
     this.positions = positions;
@@ -24,18 +31,25 @@ export class UserModel {
   }
 }
 
-export const buildUserModel = async (
+export const fetchUser = async (
   username: string
+): Promise<User | undefined> => {
+  const api = getManifoldApi();
+
+  try {
+    const user = await api.getUser({ username });
+    return user;
+  } catch (e) {
+    return undefined;
+  }
+};
+
+export const buildUserModel = async (
+  manifoldUser: User
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
-  let manifoldUser: User | undefined;
-  try {
-    manifoldUser = await api.getUser({ username });
-  } catch (e) {
-    console.error(e);
-    return undefined;
-  }
+  const { username } = manifoldUser;
 
   // Fetch bets with pagination
   // TODO combine with market.ts
@@ -134,7 +148,7 @@ export const buildUserModel = async (
 
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 
-  return new UserModel(manifoldUser.balance, loans, positions);
+  return new UserModel(manifoldUser, manifoldUser.balance, loans, positions);
 };
 
 export const getAuthedUsername = async (

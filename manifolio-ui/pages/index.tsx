@@ -1,6 +1,6 @@
 import CalculatorSection from "@/components/CalculatorSection";
 import MarketSection from "@/components/MarketSection";
-import { UserSection } from "@/components/UserSection";
+import UserSection from "@/components/UserSection";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";

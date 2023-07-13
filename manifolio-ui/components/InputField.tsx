@@ -4,7 +4,6 @@ import { createUseStyles } from "react-jss";
 
 const useStyles = createUseStyles({
   calculatorRow: {
-    marginBottom: 16,
     display: "flex",
     flexDirection: "column",
   },
