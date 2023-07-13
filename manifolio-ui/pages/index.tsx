@@ -1,6 +1,6 @@
 import CalculatorSection from "@/components/CalculatorSection";
 import MarketSection from "@/components/MarketSection";
-import { UserSection } from "@/components/UserSection";
+import UserSection from "@/components/UserSection";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
@@ -63,7 +63,7 @@ export default function Home() {
           name="twitter:image"
           content="https://manifold.markets/logo-white.png"
         />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/book.svg" />
       </Head>
       <main className={classes.main}>
         <div className={classes.centralColumn}>
