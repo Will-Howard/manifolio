@@ -5,6 +5,17 @@ import { InputField } from "@/components/InputField";
 import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
 import logger from "@/logger";
 import { throttle } from "lodash";
+import { createUseStyles } from "react-jss";
+
+const useStyles = createUseStyles(() => ({
+  inputSection: {
+    display: "flex",
+    flexDirection: "row",
+  },
+  inputField: {
+    flex: 1,
+  },
+}));
 
 interface CalculatorSectionProps {
   apiKeyInput: string | undefined;
@@ -19,6 +30,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   marketModel,
   foundAuthedUser,
 }) => {
+  const classes = useStyles();
+
   const [probabilityInput, setProbabilityInput] = useState(50);
   const [deferenceFactor, setDeferenceFactor] = useState(0.5);
   const [betRecommendation, setBetRecommendation] = useState<
@@ -26,6 +39,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   >(undefined);
 
   const marketProb = marketModel?.market.probability;
+  const estimatedProb = probabilityInput / 100;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const getBetRecommendationThrottled = useCallback(
@@ -57,7 +71,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     getBetRecommendationThrottled(
       marketModel,
       userModel,
-      probabilityInput / 100,
+      estimatedProb,
       1 - deferenceFactor
     );
   }, [
@@ -66,6 +80,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     probabilityInput,
     userModel,
     getBetRecommendationThrottled,
+    estimatedProb,
   ]);
 
   const placeBet = useCallback(async () => {
@@ -89,35 +104,37 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
 
   const naiveKellyOutcome =
-    probabilityInput > (marketProb ?? probabilityInput) ? "YES" : "NO";
+    estimatedProb > (marketProb ?? estimatedProb) ? "YES" : "NO";
 
   return (
     <>
-      <InputField
-        label="Probability estimate (%):"
-        id="probabilityInput"
-        type="number"
-        step="1"
-        min="0"
-        max="100"
-        value={probabilityInput}
-        onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
-      />
-      <InputField
-        label="Safety factor:"
-        id="kellyFractionInput"
-        type="number"
-        step="0.01"
-        min="0"
-        max="1"
-        value={deferenceFactor}
-        onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
-      />
+      <div className={classes.inputSection}>
+        <InputField
+          label="Probability (%)"
+          id="probabilityInput"
+          type="number"
+          step="1"
+          min="0"
+          max="100"
+          value={probabilityInput}
+          onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
+          className={classes.inputField}
+        />
+        <InputField
+          label="Safety factor"
+          id="kellyFractionInput"
+          type="number"
+          step="0.01"
+          min="0"
+          max="1"
+          value={deferenceFactor}
+          onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
+          className={classes.inputField}
+        />
+      </div>
       <br />
       {/* Results section */}
-      <div>
-        Optimal bet accounting for variation in value of illiquid investments:
-      </div>
+      <div>Bet recommendation:</div>
       {betRecommendation && (
         <>
           {naiveKellyOutcome !== betRecommendation.outcome && (

@@ -5,20 +5,21 @@ import { createUseStyles } from "react-jss";
 const useStyles = createUseStyles({
   calculatorRow: {
     marginBottom: 16,
-    "& input": {
-      marginLeft: 8,
-    },
+    display: "flex",
+    flexDirection: "column",
   },
   input: {
     lineHeight: "26px",
     borderRadius: 4,
     padding: "0 6px",
+    margin: "8px 0",
+    width: "80%",
   },
   inputError: {
-    border: "1px solid red",
+    border: "2px solid red",
   },
   inputSuccess: {
-    border: "1px solid green",
+    border: "2px solid green",
   },
 });
 
@@ -37,6 +38,7 @@ interface InputFieldProps {
   decimalPlaces?: number;
   significantFigures?: number;
   status?: "error" | "success" | undefined;
+  className?: string;
 }
 
 const applyRounding = (
@@ -85,7 +87,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
       : "";
 
   return (
-    <div className={classes.calculatorRow}>
+    <div className={classNames(classes.calculatorRow, props.className)}>
       <label htmlFor={props.id}>{props.label}</label>
       <input
         id={props.id}

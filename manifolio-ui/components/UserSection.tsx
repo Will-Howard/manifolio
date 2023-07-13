@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { UserModel, buildUserModel, getAuthedUsername } from "@/lib/user";
 import { InputField } from "@/components/InputField";
+import { createUseStyles } from "react-jss";
+
+const useStyles = createUseStyles(() => ({
+  inputSection: {
+    display: "flex",
+    flexDirection: "row",
+  },
+  inputField: {
+    flex: 1,
+  },
+}));
 
 interface UserSectionProps {
   apiKeyInput?: string;
@@ -19,6 +30,8 @@ export const UserSection: React.FC<UserSectionProps> = ({
   setUserModel,
   foundAuthedUser,
 }) => {
+  const classes = useStyles();
+
   const [usernameInput, setUsernameInput] = useState<string>("WilliamHoward");
   const [foundUser, setFoundUser] = useState<boolean>(false);
 
@@ -51,39 +64,49 @@ export const UserSection: React.FC<UserSectionProps> = ({
     void tryFetchUser(parsedUsername);
   }, [setUserModel, usernameInput]);
 
+  const userInputStatus = foundUser
+    ? "success"
+    : usernameInput
+    ? "error"
+    : undefined;
+
+  const apiKeyInputStatus = foundAuthedUser
+    ? "success"
+    : apiKeyInput
+    ? "error"
+    : undefined;
+
   return (
     <>
-      <InputField
-        label="User:"
-        id="usernameInput"
-        type="text"
-        placeholder="e.g. @WilliamHoward or https://manifold.markets/WilliamHoward"
-        value={usernameInput}
-        onChange={(e) => setUsernameInput(e.target.value)}
-        status={foundUser ? "success" : "error"}
-        disabled={!!apiKeyInput && apiKeyInput.length > 0}
-      />
-      <InputField
-        label="API key (optional):"
-        id="apiKeyInput"
-        type="text"
-        placeholder='Find in "Edit Profile" on Manifold'
-        value={apiKeyInput}
-        onChange={(e) => setApiKeyInput(e.target.value)}
-        status={
-          apiKeyInput !== undefined && apiKeyInput.length > 0
-            ? foundAuthedUser
-              ? "success"
-              : "error"
-            : undefined
-        }
-      />
+      <div className={classes.inputSection}>
+        <InputField
+          label="User"
+          id="usernameInput"
+          type="text"
+          placeholder="Url or username"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+          status={userInputStatus}
+          disabled={!!apiKeyInput && apiKeyInput.length > 0}
+          className={classes.inputField}
+        />
+        <InputField
+          label="API key (optional)"
+          id="apiKeyInput"
+          type="text"
+          placeholder='Find in "Edit Profile" on Manifold'
+          value={apiKeyInput}
+          onChange={(e) => setApiKeyInput(e.target.value)}
+          status={apiKeyInputStatus}
+          className={classes.inputField}
+        />
+      </div>
       {userModel && (
         <div>
-          <p>Balance: {userModel.balance.toFixed(0)}</p>
-          <p>Total loans: {userModel.loans.toFixed(0)}</p>
-          <p>Balance net of loans: {userModel.balanceAfterLoans.toFixed(0)}</p>
-          <p>Portfolio value: {userModel.portfolioEV.toFixed(0)}</p>
+          <p>Balance: M{userModel.balance.toFixed(0)}</p>
+          <p>Total loans: M{userModel.loans.toFixed(0)}</p>
+          <p>Balance after loans: M{userModel.balanceAfterLoans.toFixed(0)}</p>
+          <p>Portfolio value: M{userModel.portfolioEV.toFixed(0)}</p>
         </div>
       )}
     </>

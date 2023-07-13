@@ -12,7 +12,7 @@ export default async function handler(
   const api = new Manifold(apiKey);
 
   const createResult = await api.createBet({
-    amount,
+    amount: Math.round(amount),
     marketId,
     outcome,
   });

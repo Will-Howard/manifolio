@@ -1,6 +1,7 @@
-import { Lato } from "next/font/google";
+import { Figtree, Lato } from "next/font/google";
 
 const lato = Lato({ weight: "900", subsets: ["latin"] });
+const figtree = Figtree({ weight: "400", subsets: ["latin"] });
 
 const xs = 0;
 const sm = 600;
@@ -38,7 +39,6 @@ export const theme: Theme = {
   headingFont: `Gill Sans, Gill Sans MT, ${lato.style.fontFamily}, Calibri, sans-serif`,
   bodyFont:
     "Petrona, Iowan Old Style, Apple Garamond, Baskerville, Times New Roman, Times, Source Serif Pro, serif",
-  manaFont: "Figtree",
   breakpoints: {
     xs: `@media screen and (max-width: ${xs}px)`,
     sm: `@media screen and (max-width: ${sm}px)`,

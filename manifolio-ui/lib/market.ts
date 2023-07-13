@@ -48,7 +48,9 @@ export class CpmmMarketModel {
   };
 }
 
-export const buildCpmmMarketModel = async (slug: string) => {
+const buildCpmmMarketModelInner = async (
+  slug: string
+): Promise<CpmmMarketModel> => {
   const api = getManifoldApi();
 
   // Fetch market
@@ -91,4 +93,15 @@ export const buildCpmmMarketModel = async (slug: string) => {
   }, {} as { [userId: string]: number });
 
   return new CpmmMarketModel({ market, bets: allBets, balanceByUserId });
+};
+
+export const buildCpmmMarketModel = async (
+  slug: string
+): Promise<CpmmMarketModel | undefined> => {
+  try {
+    return await buildCpmmMarketModelInner(slug);
+  } catch (e) {
+    // TODO distinguish unexpected errors from 404s
+    return undefined;
+  }
 };
