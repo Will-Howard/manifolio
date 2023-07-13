@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { UserModel, buildUserModel } from "@/lib/user";
+import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
+import type { User } from "@/lib/vendor/manifold-sdk";
+import { Classes } from "jss";
 
-const useStyles = createUseStyles(() => ({
+const useStyles = createUseStyles({
   inputSection: {
     display: "flex",
     flexDirection: "row",
@@ -12,7 +14,68 @@ const useStyles = createUseStyles(() => ({
   inputField: {
     flex: 1,
   },
-}));
+  profileContainer: {
+    display: "flex",
+    paddingRight: "6%",
+  },
+  avatar: {
+    borderRadius: "50%",
+    margin: "8px 24px 8px 4px",
+  },
+  detailsTitle: {
+    fontWeight: 600,
+    margin: "4px 0",
+  },
+  detailsContainer: {
+    display: "flex",
+    flexDirection: "column",
+    maxWidth: 250,
+    width: "100%",
+  },
+  detailsRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  positive: {
+    color: "#0f9889",
+    fontWeight: 600,
+  },
+  negative: {
+    color: "#db1f00",
+    fontWeight: 600,
+  },
+});
+
+interface DetailProps {
+  label: string;
+  value: number | undefined;
+  isInverse?: boolean;
+  classes: Classes;
+}
+
+const Detail: React.FC<DetailProps> = ({
+  label,
+  value,
+  isInverse,
+  classes,
+}) => {
+  // flip the sign if isInverse is true
+  const isPositive = (value !== undefined && value >= 0) !== isInverse;
+
+  const formattedValue =
+    value !== undefined ? parseInt(value.toFixed(0)).toLocaleString() : "—";
+
+  return (
+    <div className={classes.detailsRow}>
+      <span>{label}:</span>
+      <span className={isPositive ? classes.positive : classes.negative}>
+        M{formattedValue}
+      </span>
+    </div>
+  );
+};
 
 interface UserSectionProps {
   apiKeyInput?: string;
@@ -23,20 +86,21 @@ interface UserSectionProps {
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
 }
 
-export const UserSection: React.FC<UserSectionProps> = ({
+const UserSection: React.FC<UserSectionProps> = ({
   apiKeyInput,
   setApiKeyInput,
   setFoundAuthedUser,
   userModel,
   setUserModel,
   foundAuthedUser,
-}) => {
+}: UserSectionProps) => {
   const classes = useStyles();
 
   const [usernameInput, setUsernameInput] = useLocalStorageState<
     string | undefined
   >("usernameInput", undefined);
   const [foundUser, setFoundUser] = useState<boolean>(false);
+  const [user, setUser] = useState<User | undefined>(undefined);
 
   // Fetch the authenticated user
   useEffect(() => {
@@ -69,9 +133,14 @@ export const UserSection: React.FC<UserSectionProps> = ({
     const parsedUsername = usernameInput.split("/").pop() || "";
 
     const tryFetchUser = async (username: string) => {
-      const userModel = await buildUserModel(username);
+      const user = await fetchUser(username);
+      setFoundUser(!!user);
 
-      setFoundUser(!!userModel);
+      if (!user) return;
+      setUser(user);
+
+      // slow
+      const userModel = await buildUserModel(user);
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
@@ -88,6 +157,9 @@ export const UserSection: React.FC<UserSectionProps> = ({
     : apiKeyInput
     ? "error"
     : undefined;
+
+  const { name = "—", avatarUrl = "https://manifold.markets/logo.svg" } =
+    user || {};
 
   return (
     <>
@@ -114,14 +186,36 @@ export const UserSection: React.FC<UserSectionProps> = ({
           className={classes.inputField}
         />
       </div>
-      {userModel && (
-        <div>
-          <p>Balance: M{userModel.balance.toFixed(0)}</p>
-          <p>Total loans: M{userModel.loans.toFixed(0)}</p>
-          <p>Balance after loans: M{userModel.balanceAfterLoans.toFixed(0)}</p>
-          <p>Portfolio value: M{userModel.portfolioEV.toFixed(0)}</p>
+      <div className={classes.profileContainer}>
+        <img
+          src={avatarUrl}
+          alt="User avatar"
+          className={classes.avatar}
+          width="80"
+          height="80"
+        />
+        <div className={classes.detailsContainer}>
+          <div className={classes.detailsTitle}>{name}</div>
+          <Detail
+            label="Balance"
+            value={userModel?.balance}
+            classes={classes}
+          />
+          <Detail
+            label="Total loans"
+            value={userModel?.loans}
+            isInverse
+            classes={classes}
+          />
+          <Detail
+            label="Portfolio value"
+            value={userModel?.portfolioEV}
+            classes={classes}
+          />
         </div>
-      )}
+      </div>
     </>
   );
 };
+
+export default UserSection;

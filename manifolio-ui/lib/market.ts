@@ -49,12 +49,9 @@ export class CpmmMarketModel {
 }
 
 const buildCpmmMarketModelInner = async (
-  slug: string
+  market: FullMarket
 ): Promise<CpmmMarketModel> => {
   const api = getManifoldApi();
-
-  // Fetch market
-  const market = await api.getMarket({ slug });
 
   // Fetch bets with pagination
   // TODO combine with market.ts
@@ -62,7 +59,11 @@ const buildCpmmMarketModelInner = async (
   let before: string | undefined = undefined;
 
   while (true) {
-    const bets = await api.getBets({ marketSlug: slug, before, limit: 1000 });
+    const bets = await api.getBets({
+      marketId: market.id,
+      before,
+      limit: 1000,
+    });
     allBets.push(...bets);
 
     // Break if:
@@ -96,12 +97,25 @@ const buildCpmmMarketModelInner = async (
 };
 
 export const buildCpmmMarketModel = async (
-  slug: string
+  market: FullMarket
 ): Promise<CpmmMarketModel | undefined> => {
   try {
-    return await buildCpmmMarketModelInner(slug);
+    return await buildCpmmMarketModelInner(market);
   } catch (e) {
     // TODO distinguish unexpected errors from 404s
+    return undefined;
+  }
+};
+
+export const fetchMarket = async (
+  slug: string
+): Promise<FullMarket | undefined> => {
+  const api = getManifoldApi();
+
+  try {
+    const market = await api.getMarket({ slug });
+    return market;
+  } catch (e) {
     return undefined;
   }
 };
