@@ -138,7 +138,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
           label="Market"
           id="marketInput"
           type="text"
-          placeholder="Url or slug. E.g. will-scott-alexander-blog-about-sil or https://manifold.markets/xyz/will-scott-alexander-blog-about-sil"
+          placeholder="Url or slug"
           value={marketInput}
           onChange={(e) => setMarketInput(e.target.value)}
           status={inputStatus}
