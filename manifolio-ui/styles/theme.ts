@@ -27,6 +27,8 @@ export type Theme = {
   headingFont: string;
   bodyFont: string;
   breakpoints: Breakpoints;
+  green: string;
+  red: string;
 };
 
 export const theme: Theme = {
@@ -39,6 +41,8 @@ export const theme: Theme = {
   headingFont: `Gill Sans, Gill Sans MT, ${lato.style.fontFamily}, Calibri, sans-serif`,
   bodyFont:
     "Petrona, Iowan Old Style, Apple Garamond, Baskerville, Times New Roman, Times, Source Serif Pro, serif",
+  green: "#0f9889",
+  red: "#db1f00",
   breakpoints: {
     xs: `@media screen and (max-width: ${xs}px)`,
     sm: `@media screen and (max-width: ${sm}px)`,

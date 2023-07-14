@@ -24,13 +24,12 @@ const useStyles = createUseStyles((theme: Theme) => ({
     width: "100%",
   },
   calculatorWrapper: {
-    border: `5px solid ${theme.border.main}`,
     borderRadius: "8px",
-    marginTop: "48px",
-    padding: "32px 24px",
+    padding: "32px 16px",
   },
   hr: {
     marginBottom: 18,
+    marginTop: 12,
   },
 }));
 
@@ -59,6 +58,10 @@ export default function Home() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:creator" content="@__Will_Howard__" />
         <meta name="twitter:title" content="Manifolio" />
+        <meta
+          name="description"
+          content="Bet sizing tool for Manifold Markets"
+        />
         <meta
           name="twitter:image"
           content="https://manifold.markets/logo-white.png"

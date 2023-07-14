@@ -5,18 +5,20 @@ import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
+import type { Theme } from "@/styles/theme";
+import classNames from "classnames";
 
-const useStyles = createUseStyles({
+const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
     display: "flex",
     flexDirection: "row",
+    gap: "3%",
   },
   inputField: {
     flex: 1,
   },
   profileContainer: {
     display: "flex",
-    paddingRight: "6%",
   },
   avatar: {
     borderRadius: "50%",
@@ -38,15 +40,16 @@ const useStyles = createUseStyles({
     justifyContent: "space-between",
     width: "100%",
   },
-  positive: {
-    color: "#0f9889",
+  value: {
     fontWeight: 600,
   },
-  negative: {
-    color: "#db1f00",
-    fontWeight: 600,
+  red: {
+    color: theme.red,
   },
-});
+  green: {
+    color: theme.green,
+  },
+}));
 
 interface DetailProps {
   label: string;
@@ -62,7 +65,8 @@ const Detail: React.FC<DetailProps> = ({
   classes,
 }) => {
   // flip the sign if isInverse is true
-  const isPositive = (value !== undefined && value >= 0) !== isInverse;
+  const isPositive = value !== undefined && value > 0 !== isInverse;
+  const isNegative = value !== undefined && value < 0 !== isInverse;
 
   const formattedValue =
     value !== undefined ? parseInt(value.toFixed(0)).toLocaleString() : "—";
@@ -70,7 +74,12 @@ const Detail: React.FC<DetailProps> = ({
   return (
     <div className={classes.detailsRow}>
       <span>{label}:</span>
-      <span className={isPositive ? classes.positive : classes.negative}>
+      <span
+        className={classNames(classes.value, {
+          [classes.green]: isPositive,
+          [classes.red]: isNegative,
+        })}
+      >
         M{formattedValue}
       </span>
     </div>
