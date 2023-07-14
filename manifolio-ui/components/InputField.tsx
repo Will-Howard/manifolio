@@ -6,13 +6,16 @@ const useStyles = createUseStyles({
   calculatorRow: {
     display: "flex",
     flexDirection: "column",
+    marginBottom: 8,
+  },
+  label: {
+    marginBottom: 8,
   },
   input: {
     lineHeight: "26px",
     borderRadius: 4,
     padding: "0 6px",
-    margin: "8px 0",
-    width: "80%",
+    marginTop: "auto",
   },
   inputError: {
     border: "2px solid red",
@@ -79,7 +82,9 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
 
   return (
     <div className={classNames(classes.calculatorRow, props.className)}>
-      <label htmlFor={props.id}>{props.label}</label>
+      <label className={classes.label} htmlFor={props.id}>
+        {props.label}
+      </label>
       <input
         id={props.id}
         type={props.type}
