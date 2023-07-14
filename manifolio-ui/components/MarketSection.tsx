@@ -13,14 +13,13 @@ const useStyles = createUseStyles(() => ({
   inputSection: {
     display: "flex",
     flexDirection: "row",
-    width: "50%",
+    width: "48.5%", // Accounting for 3% gap on rows with 2 inputs
   },
   inputField: {
     flex: 1,
   },
   profileContainer: {
     display: "flex",
-    paddingRight: "6%",
   },
   avatar: {
     borderRadius: "50%",
@@ -164,6 +163,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
             }
             classes={classes}
           />
+          {/* TODO expected time to close */}
           {/* TODO your position */}
         </div>
       </div>

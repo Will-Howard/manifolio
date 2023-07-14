@@ -7,16 +7,64 @@ import logger from "@/logger";
 import { throttle } from "lodash";
 import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
+import { Button } from "@mui/material";
+import { Classes } from "jss";
+import { Theme } from "@/styles/theme";
 
-const useStyles = createUseStyles(() => ({
+const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
     display: "flex",
     flexDirection: "row",
+    gap: "3%",
   },
   inputField: {
     flex: 1,
   },
+  detailsContainer: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    marginTop: 16,
+  },
+  detailsRow: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 4,
+  },
+  label: {
+    maxWidth: "65%", // To stop the label and value from getting too close
+  },
+  value: {
+    marginTop: "auto",
+    fontWeight: 600,
+  },
+  red: {
+    color: theme.red,
+  },
+  green: {
+    color: theme.green,
+  },
 }));
+
+interface DetailProps {
+  label: JSX.Element | string;
+  value: JSX.Element | string;
+  isInverse?: boolean;
+  classes: Classes;
+}
+
+const Detail: React.FC<DetailProps> = ({ label, value, classes }) => {
+  return (
+    <div className={classes.detailsRow}>
+      <span className={classes.label}>{label}:</span>
+      <span className={typeof value === "string" ? classes.value : ""}>
+        {value}
+      </span>
+    </div>
+  );
+};
 
 interface CalculatorSectionProps {
   apiKeyInput: string | undefined;
@@ -112,12 +160,13 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const naiveKellyOutcome =
     estimatedProb > (marketProb ?? estimatedProb) ? "YES" : "NO";
+  // TODO add error codes to betRecommendation and handle them here
 
   return (
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="Probability (%)"
+          label="Prob. estimate (%)"
           id="probabilityInput"
           type="number"
           step="1"
@@ -139,22 +188,64 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           className={classes.inputField}
         />
       </div>
-      <br />
       {/* Results section */}
-      <div>Bet recommendation:</div>
+      <div className={classes.detailsContainer}>
+        <Detail
+          label={<strong>Recommended bet</strong>}
+          value={
+            betRecommendation ? (
+              <>
+                <strong>
+                  M
+                  {parseInt(
+                    betRecommendation.amount.toFixed(0)
+                  ).toLocaleString()}
+                </strong>{" "}
+                on{" "}
+                <span
+                  className={
+                    betRecommendation.outcome === "YES"
+                      ? classes.green
+                      : classes.red
+                  }
+                >
+                  <strong>{betRecommendation.outcome}</strong>
+                </span>
+              </>
+            ) : (
+              "—"
+            )
+          }
+          classes={classes}
+        />
+        <Detail
+          label="Annual return from a portfolio of similar bets"
+          value={
+            betRecommendation
+              ? `${((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%`
+              : "—"
+          }
+          classes={classes}
+        />
+        <Detail
+          label="Annual return if this were your only bet"
+          value={
+            betRecommendation
+              ? `${((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(
+                  3
+                )}%`
+              : "—"
+          }
+          classes={classes}
+        />
+      </div>
+      <br />
       {betRecommendation && (
         <>
-          {naiveKellyOutcome !== betRecommendation.outcome && (
-            <div>
-              <p>ERROR</p>
-            </div>
-          )}
-          <div>
-            <p>
-              Kelly optimal bet: M{betRecommendation.amount.toFixed(0)} on{" "}
-              {betRecommendation.outcome}
-            </p>
-          </div>
+          {/* Place bet */}
+          <Button disabled={!foundAuthedUser} onClick={placeBet}>
+            Place bet
+          </Button>
           <div>
             <p>
               {betRecommendation.outcome} Shares:{" "}
@@ -167,22 +258,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
               {(betRecommendation.pAfter * 100).toFixed(1)}%
             </p>
           </div>
-          <div>
-            <p>
-              ROI from a portfolio of similar independent bets (annual):{" "}
-              {((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%
-            </p>
-          </div>
-          <div>
-            <p>
-              ROI if this were your only bet (annual):{" "}
-              {((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(3)}%
-            </p>
-          </div>
-          {/* Place bet */}
-          <button disabled={!foundAuthedUser} onClick={placeBet}>
-            Place bet
-          </button>
         </>
       )}
     </>
