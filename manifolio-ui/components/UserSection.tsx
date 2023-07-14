@@ -184,6 +184,7 @@ const UserSection: React.FC<UserSectionProps> = ({
           disabled={!!apiKeyInput && apiKeyInput.length > 0}
           className={classes.inputField}
         />
+        {/* TODO this doesn't render correctly on mobile */}
         <InputField
           label="API key (optional)"
           id="apiKeyInput"

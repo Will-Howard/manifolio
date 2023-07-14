@@ -20,16 +20,33 @@ const useStyles = createUseStyles((theme: Theme) => ({
   centralColumn: {
     margin: "auto",
     maxWidth: COLUMN_MAX_WIDTH,
-    paddingTop: 1,
-    width: "100%",
-  },
-  calculatorWrapper: {
-    borderRadius: "8px",
-    padding: "32px 16px",
+    padding: "0 16px",
+    "& a": {
+      textDecoration: "none",
+      fontWeight: 600,
+      color: theme.link,
+      "&:visited": {
+        color: theme.link,
+      },
+    },
   },
   hr: {
     marginBottom: 18,
     marginTop: 12,
+  },
+  title: {
+    padding: "16px 0 0 0",
+    margin: 0,
+  },
+  subtitle: {
+    fontStyle: "italic",
+    margin: "0 0 4px 0",
+  },
+  headerBorder: {
+    borderBottom: `1px solid black`,
+    borderTop: `1px solid black`,
+    height: 2,
+    marginBottom: 12,
   },
 }));
 
@@ -54,7 +71,10 @@ export default function Home() {
     <>
       <Head>
         <title>Manifolio</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1"
+        />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:creator" content="@__Will_Howard__" />
         <meta name="twitter:title" content="Manifolio" />
@@ -62,38 +82,41 @@ export default function Home() {
           name="description"
           content="Bet sizing tool for Manifold Markets"
         />
-        <meta
-          name="twitter:image"
-          content="https://manifold.markets/logo-white.png"
-        />
+        {/* TODO does this actually work (because it's a relative link)? */}
+        <meta name="twitter:image" content="/book.svg" />
         <link rel="icon" href="/book.svg" />
       </Head>
       <main className={classes.main}>
         <div className={classes.centralColumn}>
-          <div className={classes.calculatorWrapper}>
-            <UserSection
-              apiKeyInput={apiKeyInput}
-              setApiKeyInput={setApiKeyInput}
-              foundAuthedUser={foundAuthedUser}
-              setFoundAuthedUser={setFoundAuthedUser}
-              userModel={userModel}
-              setUserModel={setUserModel}
-            />
-            <hr className={classes.hr} />
-            <MarketSection
-              marketInput={marketInput}
-              setMarketInput={setMarketInput}
-              marketModel={marketModel}
-              setMarketModel={setMarketModel}
-            />
-            <hr className={classes.hr} />
-            <CalculatorSection
-              apiKeyInput={apiKeyInput}
-              userModel={userModel}
-              marketModel={marketModel}
-              foundAuthedUser={foundAuthedUser}
-            />
-          </div>
+          <h1 className={classes.title}>Manifolio</h1>
+          <p className={classes.subtitle}>
+            Bet size calculator for{" "}
+            <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
+            <a href="https://docs.manifoldfinance.com/">here</a>
+          </p>
+          <div className={classes.headerBorder} />
+          <UserSection
+            apiKeyInput={apiKeyInput}
+            setApiKeyInput={setApiKeyInput}
+            foundAuthedUser={foundAuthedUser}
+            setFoundAuthedUser={setFoundAuthedUser}
+            userModel={userModel}
+            setUserModel={setUserModel}
+          />
+          <hr className={classes.hr} />
+          <MarketSection
+            marketInput={marketInput}
+            setMarketInput={setMarketInput}
+            marketModel={marketModel}
+            setMarketModel={setMarketModel}
+          />
+          <hr className={classes.hr} />
+          <CalculatorSection
+            apiKeyInput={apiKeyInput}
+            userModel={userModel}
+            marketModel={marketModel}
+            foundAuthedUser={foundAuthedUser}
+          />
         </div>
       </main>
     </>

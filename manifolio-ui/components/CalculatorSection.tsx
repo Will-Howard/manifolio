@@ -160,12 +160,13 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const naiveKellyOutcome =
     estimatedProb > (marketProb ?? estimatedProb) ? "YES" : "NO";
+  // TODO add error codes to betRecommendation and handle them here
 
   return (
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="Probability estimate (%)"
+          label="Prob. estimate (%)"
           id="probabilityInput"
           type="number"
           step="1"
