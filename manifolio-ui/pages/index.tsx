@@ -4,7 +4,8 @@ import UserSection from "@/components/UserSection";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
-import { Theme } from "@/styles/theme";
+import { Theme, petrona } from "@/styles/theme";
+import classNames from "classnames";
 import Head from "next/head";
 import { useState } from "react";
 import { createUseStyles } from "react-jss";
@@ -87,12 +88,13 @@ export default function Home() {
         <link rel="icon" href="/book.svg" />
       </Head>
       <main className={classes.main}>
-        <div className={classes.centralColumn}>
+        <div className={classNames(classes.centralColumn, petrona.className)}>
           <h1 className={classes.title}>Manifolio</h1>
           <p className={classes.subtitle}>
             Bet size calculator for{" "}
             <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-            <a href="https://docs.manifoldfinance.com/">here</a>
+            {/* TODO */}
+            <a href="/">here</a>
           </p>
           <div className={classes.headerBorder} />
           <UserSection

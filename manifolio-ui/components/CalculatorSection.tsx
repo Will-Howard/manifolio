@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { UserModel } from "@/lib/user";
 import { CpmmMarketModel } from "@/lib/market";
 import { InputField } from "@/components/InputField";
-import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
+import {
+  BetRecommendationFull,
+  Outcome,
+  getBetRecommendation,
+} from "@/lib/calculate";
 import logger from "@/logger";
 import { throttle } from "lodash";
 import { createUseStyles } from "react-jss";
@@ -93,6 +97,9 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     BetRecommendationFull | undefined
   >(undefined);
 
+  const [editableAmount, setEditableAmount] = useState<number | undefined>();
+  const [editableOutcome, setEditableOutcome] = useState<Outcome>();
+
   const marketProb = marketModel?.market.probability;
   const estimatedProb = probabilityInput / 100;
 
@@ -142,18 +149,20 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     if (!betRecommendation || !marketModel?.market.id) return;
 
     const { amount, outcome } = betRecommendation;
+    const body = {
+      amount,
+      marketId: marketModel.market.id,
+      outcome,
+      apiKey: apiKeyInput,
+    }
+    logger.debug("placeBet body:", body)
 
     const res = await fetch("/api/bet", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        amount,
-        marketId: marketModel.market.id,
-        outcome,
-        apiKey: apiKeyInput,
-      }),
+      body: JSON.stringify(body),
     });
     logger.info("Created bet:", res);
   }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
@@ -176,6 +185,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
           className={classes.inputField}
         />
+
         <InputField
           label="Safety factor"
           id="kellyFractionInput"
@@ -239,10 +249,9 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           classes={classes}
         />
       </div>
-      <br />
+      {/* <br />
       {betRecommendation && (
         <>
-          {/* Place bet */}
           <Button disabled={!foundAuthedUser} onClick={placeBet}>
             Place bet
           </Button>
@@ -258,6 +267,69 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
               {(betRecommendation.pAfter * 100).toFixed(1)}%
             </p>
           </div>
+        </>
+      )} */}
+      {/* WIP */}
+      <br />
+      {betRecommendation && (
+        <>
+          <div className={classes.inputSection}>
+            <InputField
+              label="Amount"
+              id="amountInput"
+              type="number"
+              step="1"
+              min="0"
+              value={editableAmount || betRecommendation.amount}
+              onChange={(e) => setEditableAmount(parseFloat(e.target.value))}
+              className={classes.inputField}
+            />
+            <Button
+              variant={editableOutcome === "YES" ? "contained" : "outlined"}
+              color="primary"
+              onClick={() => setEditableOutcome("YES")}
+            >
+              YES
+            </Button>
+            <Button
+              variant={editableOutcome === "NO" ? "contained" : "outlined"}
+              color="primary"
+              onClick={() => setEditableOutcome("NO")}
+            >
+              NO
+            </Button>
+            <Button
+              onClick={() => {
+                setEditableAmount(betRecommendation.amount);
+                setEditableOutcome(betRecommendation.outcome);
+              }}
+            >
+              Reset to recommended
+            </Button>
+          </div>
+          <div className={classes.detailsContainer}>
+            <Detail
+              label={`Payout if ${
+                editableOutcome || betRecommendation.outcome
+              }`}
+              value={betRecommendation.shares.toFixed(0)}
+              classes={classes}
+            />
+            <Detail
+              label="New probability"
+              // TODO handle negative case, plus pull out this logic
+              value={`${(betRecommendation.pAfter * 100).toFixed(1)}% (+${(
+                (betRecommendation.pAfter -
+                  (marketModel?.market.probability ?? 0)) *
+                100
+              ).toFixed(1)}%)`}
+              classes={classes}
+            />
+          </div>
+          <br />
+          <Button disabled={!foundAuthedUser} onClick={placeBet}>
+            Place bet
+          </Button>
         </>
       )}
     </>

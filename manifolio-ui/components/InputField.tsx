@@ -28,7 +28,7 @@ const useStyles = createUseStyles({
 interface InputFieldProps {
   id: string;
   type: string;
-  label: string;
+  label: string | JSX.Element;
   step?: string;
   min?: string;
   max?: string;

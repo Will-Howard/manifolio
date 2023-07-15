@@ -174,7 +174,7 @@ const UserSection: React.FC<UserSectionProps> = ({
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="User"
+          label={<strong>User</strong>}
           id="usernameInput"
           type="text"
           placeholder="Url or username"
