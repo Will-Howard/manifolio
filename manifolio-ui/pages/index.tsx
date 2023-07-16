@@ -95,7 +95,7 @@ export default function Home() {
             Bet size calculator for{" "}
             <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
             {/* TODO */}
-            <a href="/">here</a>
+            <a href="https://manifold.markets/">here</a>
           </p>
           <div className={classes.headerBorder} />
           <UserSection
