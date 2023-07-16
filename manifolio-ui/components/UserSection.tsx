@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
-import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
@@ -16,6 +15,8 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   inputField: {
     flex: 1,
+    // Same width as amount input at full width
+    maxWidth: 403,
   },
   profileContainer: {
     display: "flex",
@@ -31,7 +32,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   detailsContainer: {
     display: "flex",
     flexDirection: "column",
-    maxWidth: 250,
+    maxWidth: 290,
     width: "100%",
   },
   detailsRow: {
@@ -87,59 +88,28 @@ const Detail: React.FC<DetailProps> = ({
 };
 
 interface UserSectionProps {
-  apiKeyInput?: string;
-  setApiKeyInput: React.Dispatch<React.SetStateAction<string | undefined>>;
-  foundAuthedUser: boolean;
-  setFoundAuthedUser: React.Dispatch<React.SetStateAction<boolean>>;
+  usernameInput?: string;
+  setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
 }
 
 const UserSection: React.FC<UserSectionProps> = ({
-  apiKeyInput,
-  setApiKeyInput,
-  setFoundAuthedUser,
+  usernameInput,
+  setUsernameInput,
   userModel,
   setUserModel,
-  foundAuthedUser,
 }: UserSectionProps) => {
   const classes = useStyles();
 
-  const [usernameInput, setUsernameInput] = useLocalStorageState<
-    string | undefined
-  >("usernameInput", undefined);
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
-
-  // Fetch the authenticated user
-  useEffect(() => {
-    if (!apiKeyInput || apiKeyInput.length == 0) return;
-
-    const tryFetchUser = async (apiKey: string) => {
-      const res = await fetch("/api/me", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          apiKey,
-        }),
-      });
-
-      const { username: authedUsername } = await res.json();
-
-      if (!authedUsername) return;
-
-      setFoundAuthedUser(true);
-      setUsernameInput(authedUsername);
-    };
-    void tryFetchUser(apiKeyInput);
-  }, [apiKeyInput, setFoundAuthedUser, setUsernameInput]);
 
   // Fetch the user
   useEffect(() => {
     if (!usernameInput || usernameInput.length == 0) return;
-    const parsedUsername = usernameInput.split("/").pop() || "";
+    const parsedUsername =
+      usernameInput.split("/").pop()?.replace("@", "") || "";
 
     const tryFetchUser = async (username: string) => {
       const user = await fetchUser(username);
@@ -161,12 +131,6 @@ const UserSection: React.FC<UserSectionProps> = ({
     ? "error"
     : undefined;
 
-  const apiKeyInputStatus = foundAuthedUser
-    ? "success"
-    : apiKeyInput
-    ? "error"
-    : undefined;
-
   const { name = "—", avatarUrl = "https://manifold.markets/logo.svg" } =
     user || {};
 
@@ -174,25 +138,13 @@ const UserSection: React.FC<UserSectionProps> = ({
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="User"
+          label={<strong>User</strong>}
           id="usernameInput"
           type="text"
           placeholder="Url or username"
           value={usernameInput}
           onChange={(e) => setUsernameInput(e.target.value)}
           status={userInputStatus}
-          disabled={!!apiKeyInput && apiKeyInput.length > 0}
-          className={classes.inputField}
-        />
-        {/* TODO this doesn't render correctly on mobile */}
-        <InputField
-          label="API key (optional)"
-          id="apiKeyInput"
-          type="text"
-          placeholder='Find in "Edit Profile" on Manifold'
-          value={apiKeyInput}
-          onChange={(e) => setApiKeyInput(e.target.value)}
-          status={apiKeyInputStatus}
           className={classes.inputField}
         />
       </div>

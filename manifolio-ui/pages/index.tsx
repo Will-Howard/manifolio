@@ -4,7 +4,8 @@ import UserSection from "@/components/UserSection";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
-import { Theme } from "@/styles/theme";
+import { Theme, petrona } from "@/styles/theme";
+import classNames from "classnames";
 import Head from "next/head";
 import { useState } from "react";
 import { createUseStyles } from "react-jss";
@@ -20,7 +21,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   centralColumn: {
     margin: "auto",
     maxWidth: COLUMN_MAX_WIDTH,
-    padding: "0 16px",
+    padding: "0 16px 16px 16px",
     "& a": {
       textDecoration: "none",
       fontWeight: 600,
@@ -53,14 +54,15 @@ const useStyles = createUseStyles((theme: Theme) => ({
 export default function Home() {
   const classes = useStyles();
 
-  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
+  const [usernameInput, setUsernameInput] = useLocalStorageState<
     string | undefined
-  >("apiKeyInput", undefined);
+  >("usernameInput", undefined);
   const [marketInput, setMarketInput] = useLocalStorageState<
     string | undefined
   >("marketInput", undefined);
-
-  const [foundAuthedUser, setFoundAuthedUser] = useState<boolean>(false);
+  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
+    string | undefined
+  >("apiKeyInput", undefined);
 
   const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
@@ -87,19 +89,18 @@ export default function Home() {
         <link rel="icon" href="/book.svg" />
       </Head>
       <main className={classes.main}>
-        <div className={classes.centralColumn}>
+        <div className={classNames(classes.centralColumn, petrona.className)}>
           <h1 className={classes.title}>Manifolio</h1>
           <p className={classes.subtitle}>
             Bet size calculator for{" "}
             <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-            <a href="https://docs.manifoldfinance.com/">here</a>
+            {/* TODO */}
+            <a href="https://manifold.markets/">here</a>
           </p>
           <div className={classes.headerBorder} />
           <UserSection
-            apiKeyInput={apiKeyInput}
-            setApiKeyInput={setApiKeyInput}
-            foundAuthedUser={foundAuthedUser}
-            setFoundAuthedUser={setFoundAuthedUser}
+            usernameInput={usernameInput}
+            setUsernameInput={setUsernameInput}
             userModel={userModel}
             setUserModel={setUserModel}
           />
@@ -113,9 +114,10 @@ export default function Home() {
           <hr className={classes.hr} />
           <CalculatorSection
             apiKeyInput={apiKeyInput}
+            setApiKeyInput={setApiKeyInput}
+            setUsernameInput={setUsernameInput}
             userModel={userModel}
             marketModel={marketModel}
-            foundAuthedUser={foundAuthedUser}
           />
         </div>
       </main>
