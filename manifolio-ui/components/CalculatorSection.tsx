@@ -146,15 +146,19 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     "probabilityInput",
     50
   );
-  const [deferenceFactor, setDeferenceFactor] = useLocalStorageState(
+  const [deferenceFactor, setDeferenceFactor] = useLocalStorageState<number>(
     "deferenceFactor",
     0.5
   );
+
   const [betRecommendation, setBetRecommendation] = useState<
     BetRecommendationFull | undefined
   >(undefined);
 
-  const [editableAmount, setEditableAmount] = useState<number | undefined>();
+  const [editableAmount, setEditableAmount] = useState<
+    // null is interpreted as "they are using the editable amount, but have cleared the input"
+    number | undefined | null
+  >();
   const [editableOutcome, setEditableOutcome] = useState<Outcome>();
 
   const resetEditableFields = useCallback(() => {
@@ -244,29 +248,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKeyInput, authedUsernameFound]);
 
-  const placeBet = useCallback(async () => {
-    if (!betRecommendation || !marketModel?.market.id) return;
-
-    const { amount, outcome } = betRecommendation;
-    const body = {
-      amount,
-      marketId: marketModel.market.id,
-      outcome,
-      apiKey: apiKeyInput,
-    };
-    logger.debug("placeBet body:", body);
-
-    // TODO add back in
-    // const res = await fetch("/api/bet", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(body),
-    // });
-    // logger.info("Created bet:", res);
-  }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
-
   const apiKeyInputStatus = authedUsernameFound
     ? "success"
     : apiKeyInput
@@ -274,8 +255,14 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     : undefined;
 
   const betAmount =
-    editableAmount ??
-    (betRecommendation?.amount ? Math.round(betRecommendation.amount) : 0);
+    editableAmount ?? // use the editable amount if it's set to a number
+    // otherwise use the bet recommendation amount, UNLESS editableAmount is null
+    // which means the user has backspaced the input to be empty (so use 0)
+    (editableAmount !== null && betRecommendation?.amount
+      ? Math.round(betRecommendation.amount)
+      : 0);
+  const betAmountDisplay = editableAmount !== null ? betAmount : "";
+
   const betOutcome =
     editableOutcome ??
     (betRecommendation?.outcome ? betRecommendation?.outcome : "YES");
@@ -292,6 +279,27 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const betProbChange =
     (betProbAfter ?? 0) - (marketModel?.market.probability ?? 0);
+
+  const placeBet = useCallback(async () => {
+    if (!betAmount || !marketModel?.market.id || !betOutcome) return;
+
+    const body = {
+      amount: Math.round(betAmount),
+      marketId: marketModel.market.id,
+      outcome: betOutcome,
+      apiKey: apiKeyInput,
+    };
+    logger.debug("placeBet body:", body);
+
+    const res = await fetch("/api/bet", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    logger.info("Created bet:", res);
+  }, [apiKeyInput, betAmount, betOutcome, marketModel?.market.id]);
 
   return (
     <>
@@ -382,10 +390,12 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
               type="number"
               step="1"
               min="0"
-              value={betAmount}
-              onChange={(e) =>
-                setEditableAmount(Math.round(parseFloat(e.target.value)))
-              }
+              value={betAmountDisplay}
+              onChange={(e) => {
+                setEditableAmount(
+                  e.target.value ? Math.round(parseFloat(e.target.value)) : null
+                );
+              }}
               className={classNames(classes.inputField, classes.betAmountInput)}
             />
           </div>
