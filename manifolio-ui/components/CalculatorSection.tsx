@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { UserModel } from "@/lib/user";
 import { CpmmMarketModel } from "@/lib/market";
 import { InputField } from "@/components/InputField";
@@ -15,6 +15,7 @@ import { Button } from "@mui/material";
 import { Classes } from "jss";
 import { Theme, theme } from "@/styles/theme";
 import classNames from "classnames";
+import { formatInt } from "@/lib/utils";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -96,6 +97,14 @@ const useStyles = createUseStyles((theme: Theme) => ({
     width: "100%",
     marginTop: 8,
   },
+  useRecommendation: {
+    fontStyle: "italic",
+    fontWeight: 600,
+    marginTop: -4,
+    color: "#6c6c6c",
+    cursor: "pointer",
+    fontSize: 15,
+  },
 }));
 
 interface DetailProps {
@@ -147,6 +156,11 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const [editableAmount, setEditableAmount] = useState<number | undefined>();
   const [editableOutcome, setEditableOutcome] = useState<Outcome>();
+
+  const resetEditableFields = useCallback(() => {
+    setEditableAmount(undefined);
+    setEditableOutcome(undefined);
+  }, []);
 
   const [authedUsername, setAuthedUsername] = useState<string | undefined>(
     undefined
@@ -242,6 +256,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     };
     logger.debug("placeBet body:", body);
 
+    // TODO add back in
     // const res = await fetch("/api/bet", {
     //   method: "POST",
     //   headers: {
@@ -266,6 +281,17 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     (betRecommendation?.outcome ? betRecommendation?.outcome : "YES");
 
   // TODO calculate bet outcomes for non-recommendation amount
+  const { newShares: betShares, probAfter: betProbAfter } = useMemo(
+    () =>
+      marketModel?.getBetInfo(betOutcome, betAmount) ?? {
+        newShares: undefined,
+        probAfter: 0,
+      },
+    [betAmount, betOutcome, marketModel]
+  );
+
+  const betProbChange =
+    (betProbAfter ?? 0) - (marketModel?.market.probability ?? 0);
 
   return (
     <>
@@ -389,28 +415,29 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
             NO
           </Button>
         </div>
-        {/* TODO handle custom amount */}
-        {betRecommendation && (
-          <div className={classes.betOutcomesContainer}>
-            <Detail
-              label={`Payout if ${
-                editableOutcome || betRecommendation.outcome
-              }`}
-              value={`M${betRecommendation.shares.toFixed(0)}`}
-              classes={classes}
-            />
-            <Detail
-              label="New probability"
-              // TODO handle negative case, plus pull out this logic
-              value={`${(betRecommendation.pAfter * 100).toFixed(1)}% (+${(
-                (betRecommendation.pAfter -
-                  (marketModel?.market.probability ?? 0)) *
-                100
-              ).toFixed(1)}%)`}
-              classes={classes}
-            />
-          </div>
-        )}
+        <div
+          className={classes.useRecommendation}
+          onClick={resetEditableFields}
+        >
+          {editableAmount !== undefined || editableOutcome !== undefined
+            ? "use recommendation"
+            : "\u00A0"}
+        </div>
+        <div className={classes.betOutcomesContainer}>
+          <Detail
+            label={`Payout if ${betOutcome}`}
+            value={`M${formatInt(betShares)}`}
+            classes={classes}
+          />
+          <Detail
+            label="New probability"
+            // TODO handle negative case, plus pull out this logic
+            value={`${(betProbAfter * 100).toFixed(1)}% (${
+              betProbChange >= 0 ? "+" : "-"
+            }${(Math.abs(betProbChange) * 100).toFixed(1)}%)`}
+            classes={classes}
+          />
+        </div>
         <div className={classes.executeBetRow}>
           <InputField
             label="API key"

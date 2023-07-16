@@ -345,6 +345,7 @@ export function calculateFullKellyBet({
   });
 
   // get the shares and pAfter
+  // TODO maybe this isn't needed
   const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
     outcome,
     optimalBet
