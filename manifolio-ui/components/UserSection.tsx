@@ -109,7 +109,8 @@ const UserSection: React.FC<UserSectionProps> = ({
   // Fetch the user
   useEffect(() => {
     if (!usernameInput || usernameInput.length == 0) return;
-    const parsedUsername = usernameInput.split("/").pop() || "";
+    const parsedUsername =
+      usernameInput.split("/").pop()?.replace("@", "") || "";
 
     const tryFetchUser = async (username: string) => {
       const user = await fetchUser(username);
