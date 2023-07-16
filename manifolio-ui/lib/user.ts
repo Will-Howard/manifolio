@@ -128,7 +128,9 @@ export const buildUserModel = async (
     (market) =>
       market.isResolved === false &&
       market.closeTime &&
-      market.closeTime > Date.now()
+      market.closeTime > Date.now() &&
+      // FIXME this should have been handled above, check again + handle dpm-2 markets (at least in EV)
+      market.mechanism === "cpmm-1"
   );
 
   const positions = openMarkets.map((market) => {
@@ -142,6 +144,8 @@ export const buildUserModel = async (
       probability,
       payout,
       loan: bet.netLoan,
+      contractId: market.id,
+      marketName: market.question,
       // ev: probability * payout, // DEBUG
     };
   });

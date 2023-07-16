@@ -13,7 +13,8 @@ import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import { Button } from "@mui/material";
 import { Classes } from "jss";
-import { Theme } from "@/styles/theme";
+import { Theme, theme } from "@/styles/theme";
+import classNames from "classnames";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -49,6 +50,36 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   green: {
     color: theme.green,
+  },
+  yesButton: {
+    backgroundColor: `${theme.green} !important`,
+    color: `${theme.green} !important`,
+  },
+  placeBetSection: {
+    border: `2px solid`,
+    borderRadius: 8,
+    padding: 16,
+  },
+  betInputSection: {
+    display: "flex",
+    flexDirection: "row",
+    gap: "3%",
+    alignItems: "center",
+  },
+  betAmountInput: {
+    marginTop: 8,
+  },
+  executeBetRow: {
+    marginTop: 12,
+    display: "flex",
+    justifyContent: "space-between",
+  },
+  apiKeyInput: {
+    // Eyeballed to be the same as the amount input on full width
+    maxWidth: 388,
+  },
+  placeBetButton: {
+    margin: "10px 0 8px 10px !important",
   },
 }));
 
@@ -154,22 +185,31 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketId: marketModel.market.id,
       outcome,
       apiKey: apiKeyInput,
-    }
-    logger.debug("placeBet body:", body)
+    };
+    logger.debug("placeBet body:", body);
 
-    const res = await fetch("/api/bet", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    logger.info("Created bet:", res);
+    // const res = await fetch("/api/bet", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify(body),
+    // });
+    // logger.info("Created bet:", res);
   }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
 
   const naiveKellyOutcome =
     estimatedProb > (marketProb ?? estimatedProb) ? "YES" : "NO";
   // TODO add error codes to betRecommendation and handle them here
+
+  const betAmount =
+    editableAmount ??
+    (betRecommendation?.amount ? Math.round(betRecommendation.amount) : 0);
+  const betOutcome =
+    editableOutcome ??
+    (betRecommendation?.outcome ? betRecommendation?.outcome : "YES");
+
+  // TODO calculate bet outcomes for non-recommendation amount
 
   return (
     <>
@@ -185,7 +225,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
           className={classes.inputField}
         />
-
         <InputField
           label="Safety factor"
           id="kellyFractionInput"
@@ -249,70 +288,54 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           classes={classes}
         />
       </div>
-      {/* <br />
-      {betRecommendation && (
-        <>
-          <Button disabled={!foundAuthedUser} onClick={placeBet}>
-            Place bet
-          </Button>
-          <div>
-            <p>
-              {betRecommendation.outcome} Shares:{" "}
-              {betRecommendation.shares.toFixed(0)}
-            </p>
-          </div>
-          <div>
-            <p>
-              Probability after bet:{" "}
-              {(betRecommendation.pAfter * 100).toFixed(1)}%
-            </p>
-          </div>
-        </>
-      )} */}
-      {/* WIP */}
       <br />
-      {betRecommendation && (
-        <>
-          <div className={classes.inputSection}>
-            <InputField
-              label="Amount"
-              id="amountInput"
-              type="number"
-              step="1"
-              min="0"
-              value={editableAmount || betRecommendation.amount}
-              onChange={(e) => setEditableAmount(parseFloat(e.target.value))}
-              className={classes.inputField}
-            />
-            <Button
-              variant={editableOutcome === "YES" ? "contained" : "outlined"}
-              color="primary"
-              onClick={() => setEditableOutcome("YES")}
-            >
-              YES
-            </Button>
-            <Button
-              variant={editableOutcome === "NO" ? "contained" : "outlined"}
-              color="primary"
-              onClick={() => setEditableOutcome("NO")}
-            >
-              NO
-            </Button>
-            <Button
-              onClick={() => {
-                setEditableAmount(betRecommendation.amount);
-                setEditableOutcome(betRecommendation.outcome);
-              }}
-            >
-              Reset to recommended
-            </Button>
-          </div>
+      <div className={classes.placeBetSection}>
+        <div className={classes.betInputSection}>
+          <InputField
+            id="amountInput"
+            type="number"
+            step="1"
+            min="0"
+            value={betAmount}
+            onChange={(e) =>
+              setEditableAmount(Math.round(parseFloat(e.target.value)))
+            }
+            className={classNames(classes.inputField, classes.betAmountInput)}
+          />
+          <span> on </span>
+          <Button
+            variant={betOutcome === "YES" ? "contained" : "outlined"}
+            style={{
+              // TODO use proper theme here (see https://stackoverflow.com/questions/46486565/material-ui-customize-button-color)
+              backgroundColor: betOutcome === "YES" ? theme.green : undefined,
+              borderColor: theme.green,
+              color: betOutcome === "YES" ? "white" : "black",
+            }}
+            onClick={() => setEditableOutcome("YES")}
+          >
+            YES
+          </Button>
+          <Button
+            variant={betOutcome === "NO" ? "contained" : "outlined"}
+            style={{
+              // TODO use proper theme here (see https://stackoverflow.com/questions/46486565/material-ui-customize-button-color)
+              backgroundColor: betOutcome === "NO" ? theme.red : undefined,
+              borderColor: theme.red,
+              color: betOutcome === "NO" ? "white" : "black",
+            }}
+            onClick={() => setEditableOutcome("NO")}
+          >
+            NO
+          </Button>
+        </div>
+        {/* TODO handle custom amount */}
+        {betRecommendation && (
           <div className={classes.detailsContainer}>
             <Detail
               label={`Payout if ${
                 editableOutcome || betRecommendation.outcome
               }`}
-              value={betRecommendation.shares.toFixed(0)}
+              value={`M${betRecommendation.shares.toFixed(0)}`}
               classes={classes}
             />
             <Detail
@@ -326,12 +349,27 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
               classes={classes}
             />
           </div>
-          <br />
-          <Button disabled={!foundAuthedUser} onClick={placeBet}>
+        )}
+        <div className={classes.executeBetRow}>
+          <InputField
+            label="API key"
+            id="probabilityInput"
+            type="number"
+            value={probabilityInput}
+            onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
+            className={classNames(classes.inputField, classes.apiKeyInput)}
+          />
+          <Button
+            variant={"contained"}
+            disabled={!foundAuthedUser}
+            className={classes.placeBetButton}
+            onClick={placeBet}
+          >
             Place bet
           </Button>
-        </>
-      )}
+          {/* TODO warnings and errors here */}
+        </div>
+      </div>
     </>
   );
 };

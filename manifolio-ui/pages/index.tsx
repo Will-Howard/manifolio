@@ -21,7 +21,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   centralColumn: {
     margin: "auto",
     maxWidth: COLUMN_MAX_WIDTH,
-    padding: "0 16px",
+    padding: "0 16px 16px 16px",
     "& a": {
       textDecoration: "none",
       fontWeight: 600,

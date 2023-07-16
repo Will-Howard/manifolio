@@ -28,7 +28,7 @@ const useStyles = createUseStyles({
 interface InputFieldProps {
   id: string;
   type: string;
-  label: string | JSX.Element;
+  label?: string | JSX.Element;
   step?: string;
   min?: string;
   max?: string;
@@ -82,9 +82,11 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
 
   return (
     <div className={classNames(classes.calculatorRow, props.className)}>
-      <label className={classes.label} htmlFor={props.id}>
-        {props.label}
-      </label>
+      {props.label && (
+        <label className={classes.label} htmlFor={props.id}>
+          {props.label}
+        </label>
+      )}
       <input
         id={props.id}
         type={props.type}
