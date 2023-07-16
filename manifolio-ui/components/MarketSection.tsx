@@ -13,10 +13,10 @@ const useStyles = createUseStyles(() => ({
   inputSection: {
     display: "flex",
     flexDirection: "row",
-    width: "48.5%", // Accounting for 3% gap on rows with 2 inputs
   },
   inputField: {
     flex: 1,
+    maxWidth: 403,
   },
   profileContainer: {
     display: "flex",
@@ -32,7 +32,7 @@ const useStyles = createUseStyles(() => ({
   detailsContainer: {
     display: "flex",
     flexDirection: "column",
-    maxWidth: 250,
+    maxWidth: 290,
     width: "100%",
   },
   detailsRow: {
@@ -134,7 +134,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="Market"
+          label={<strong>Market</strong>}
           id="marketInput"
           type="text"
           placeholder="Url or slug"

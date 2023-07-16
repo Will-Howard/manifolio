@@ -1,7 +1,6 @@
-import { Figtree, Lato } from "next/font/google";
+import { Petrona } from "next/font/google";
 
-const lato = Lato({ weight: "900", subsets: ["latin"] });
-const figtree = Figtree({ weight: "400", subsets: ["latin"] });
+export const petrona = Petrona({ subsets: ["latin"] });
 
 const xs = 0;
 const sm = 600;
@@ -24,7 +23,6 @@ export type Theme = {
   };
   primary: string;
   primaryLight: string;
-  headingFont: string;
   bodyFont: string;
   breakpoints: Breakpoints;
   green: string;
@@ -39,9 +37,8 @@ export const theme: Theme = {
   },
   primary: "#002654",
   primaryLight: "#002674",
-  headingFont: `Gill Sans, Gill Sans MT, ${lato.style.fontFamily}, Calibri, sans-serif`,
   bodyFont:
-    "Petrona, Iowan Old Style, Apple Garamond, Baskerville, Times New Roman, Times, Source Serif Pro, serif",
+    "Iowan Old Style, Petrona, Apple Garamond, Baskerville, Times New Roman, Times, Source Serif Pro, serif",
   green: "#0f9889",
   red: "#db1f00",
   link: "#002654",
