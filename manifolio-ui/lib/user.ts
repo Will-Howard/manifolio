@@ -121,7 +121,18 @@ export const buildUserModel = async (
   );
 
   const markets = await Promise.all(
-    contractsByEstEV.map(({ contractId }) => api.getMarket({ id: contractId }))
+    contractsByEstEV.map(({ contractId }) => {
+      // Retry 3 times
+      for (let i = 0; i < 3; i++) {
+        try {
+          const market = api.getMarket({ id: contractId });
+          return market;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      throw new Error(`Failed to fetch market ${contractId}`);
+    })
   );
 
   const openMarkets = markets.filter(

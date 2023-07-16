@@ -66,20 +66,35 @@ const useStyles = createUseStyles((theme: Theme) => ({
     gap: "3%",
     alignItems: "center",
   },
+  betAmountInputWrapper: {
+    display: "flex",
+    flexDirection: "row",
+    gap: "4px",
+    alignItems: "center",
+    width: "100%",
+    minWidth: 100,
+  },
   betAmountInput: {
     marginTop: 8,
+    minWidth: 100,
   },
   executeBetRow: {
-    marginTop: 12,
+    marginTop: 10,
     display: "flex",
     justifyContent: "space-between",
   },
   apiKeyInput: {
     // Eyeballed to be the same as the amount input on full width
-    maxWidth: 388,
+    maxWidth: 385,
   },
   placeBetButton: {
     margin: "10px 0 8px 10px !important",
+  },
+  betOutcomesContainer: {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    marginTop: 8,
   },
 }));
 
@@ -103,16 +118,18 @@ const Detail: React.FC<DetailProps> = ({ label, value, classes }) => {
 
 interface CalculatorSectionProps {
   apiKeyInput: string | undefined;
+  setApiKeyInput: React.Dispatch<React.SetStateAction<string | undefined>>;
+  setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel: UserModel | undefined;
   marketModel: CpmmMarketModel | undefined;
-  foundAuthedUser: boolean;
 }
 
 const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   apiKeyInput,
+  setApiKeyInput,
+  setUsernameInput,
   userModel,
   marketModel,
-  foundAuthedUser,
 }) => {
   const classes = useStyles();
 
@@ -131,7 +148,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const [editableAmount, setEditableAmount] = useState<number | undefined>();
   const [editableOutcome, setEditableOutcome] = useState<Outcome>();
 
-  const marketProb = marketModel?.market.probability;
+  const [authedUsername, setAuthedUsername] = useState<string | undefined>(
+    undefined
+  );
+
   const estimatedProb = probabilityInput / 100;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,6 +196,40 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     estimatedProb,
   ]);
 
+  const authedUsernameFound = !!authedUsername;
+  // Fetch the authenticated user
+  useEffect(() => {
+    if (!apiKeyInput || apiKeyInput.length == 0) {
+      if (authedUsernameFound) setAuthedUsername(undefined);
+      return;
+    }
+
+    const tryFetchUser = async (apiKey: string) => {
+      const res = await fetch("/api/me", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          apiKey,
+        }),
+      });
+
+      const { username: authedUsername } = await res.json();
+
+      if (!authedUsername) {
+        setAuthedUsername(undefined);
+      }
+
+      logger.info("Fetched authenticated user:", authedUsername);
+      setAuthedUsername(authedUsername);
+      setUsernameInput(authedUsername);
+    };
+    void tryFetchUser(apiKeyInput);
+    // FIXME setUsernameInput causes rerender if added as a dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKeyInput, authedUsernameFound]);
+
   const placeBet = useCallback(async () => {
     if (!betRecommendation || !marketModel?.market.id) return;
 
@@ -198,9 +252,11 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     // logger.info("Created bet:", res);
   }, [apiKeyInput, betRecommendation, marketModel?.market.id]);
 
-  const naiveKellyOutcome =
-    estimatedProb > (marketProb ?? estimatedProb) ? "YES" : "NO";
-  // TODO add error codes to betRecommendation and handle them here
+  const apiKeyInputStatus = authedUsernameFound
+    ? "success"
+    : apiKeyInput
+    ? "error"
+    : undefined;
 
   const betAmount =
     editableAmount ??
@@ -291,17 +347,22 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       <br />
       <div className={classes.placeBetSection}>
         <div className={classes.betInputSection}>
-          <InputField
-            id="amountInput"
-            type="number"
-            step="1"
-            min="0"
-            value={betAmount}
-            onChange={(e) =>
-              setEditableAmount(Math.round(parseFloat(e.target.value)))
-            }
-            className={classNames(classes.inputField, classes.betAmountInput)}
-          />
+          <div className={classes.betAmountInputWrapper}>
+            <span>
+              <strong>M</strong>
+            </span>
+            <InputField
+              id="amountInput"
+              type="number"
+              step="1"
+              min="0"
+              value={betAmount}
+              onChange={(e) =>
+                setEditableAmount(Math.round(parseFloat(e.target.value)))
+              }
+              className={classNames(classes.inputField, classes.betAmountInput)}
+            />
+          </div>
           <span> on </span>
           <Button
             variant={betOutcome === "YES" ? "contained" : "outlined"}
@@ -330,7 +391,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         </div>
         {/* TODO handle custom amount */}
         {betRecommendation && (
-          <div className={classes.detailsContainer}>
+          <div className={classes.betOutcomesContainer}>
             <Detail
               label={`Payout if ${
                 editableOutcome || betRecommendation.outcome
@@ -353,15 +414,17 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         <div className={classes.executeBetRow}>
           <InputField
             label="API key"
-            id="probabilityInput"
-            type="number"
-            value={probabilityInput}
-            onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
+            id="apiKeyInput"
+            placeholder='Find in "Edit Profile" on Manifold'
+            status={apiKeyInputStatus}
+            type="text"
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
             className={classNames(classes.inputField, classes.apiKeyInput)}
           />
           <Button
             variant={"contained"}
-            disabled={!foundAuthedUser}
+            disabled={!authedUsername}
             className={classes.placeBetButton}
             onClick={placeBet}
           >

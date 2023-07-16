@@ -54,14 +54,15 @@ const useStyles = createUseStyles((theme: Theme) => ({
 export default function Home() {
   const classes = useStyles();
 
-  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
+  const [usernameInput, setUsernameInput] = useLocalStorageState<
     string | undefined
-  >("apiKeyInput", undefined);
+  >("usernameInput", undefined);
   const [marketInput, setMarketInput] = useLocalStorageState<
     string | undefined
   >("marketInput", undefined);
-
-  const [foundAuthedUser, setFoundAuthedUser] = useState<boolean>(false);
+  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
+    string | undefined
+  >("apiKeyInput", undefined);
 
   const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
@@ -98,10 +99,8 @@ export default function Home() {
           </p>
           <div className={classes.headerBorder} />
           <UserSection
-            apiKeyInput={apiKeyInput}
-            setApiKeyInput={setApiKeyInput}
-            foundAuthedUser={foundAuthedUser}
-            setFoundAuthedUser={setFoundAuthedUser}
+            usernameInput={usernameInput}
+            setUsernameInput={setUsernameInput}
             userModel={userModel}
             setUserModel={setUserModel}
           />
@@ -115,9 +114,10 @@ export default function Home() {
           <hr className={classes.hr} />
           <CalculatorSection
             apiKeyInput={apiKeyInput}
+            setApiKeyInput={setApiKeyInput}
+            setUsernameInput={setUsernameInput}
             userModel={userModel}
             marketModel={marketModel}
-            foundAuthedUser={foundAuthedUser}
           />
         </div>
       </main>
