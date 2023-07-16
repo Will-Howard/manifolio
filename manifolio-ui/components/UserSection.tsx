@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
-import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
