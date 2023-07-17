@@ -1,4 +1,4 @@
-import { Dictionary, groupBy } from "lodash";
+import { Dictionary, chunk, groupBy } from "lodash";
 import { getManifoldApi } from "./manifold-api";
 import type { PositionModel as PositionModel } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
@@ -116,24 +116,13 @@ export const buildUserModel = async (
     }
   }
 
-  const contractsByEstEV = Object.values(cleanedContractsBetOn).sort(
-    (a, b) => b.evEstimate - a.evEstimate
-  );
-
-  const markets = await Promise.all(
-    contractsByEstEV.map(({ contractId }) => {
-      // Retry 3 times
-      for (let i = 0; i < 3; i++) {
-        try {
-          const market = api.getMarket({ id: contractId });
-          return market;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      throw new Error(`Failed to fetch market ${contractId}`);
+  const marketChunks = await Promise.all(
+    chunk(Object.keys(cleanedContractsBetOn), 500).map(async (ids) => {
+      const markets = await api.getMarkets({ ids, limit: 500 });
+      return markets;
     })
   );
+  const markets = marketChunks.flat();
 
   const openMarkets = markets.filter(
     (market) =>
