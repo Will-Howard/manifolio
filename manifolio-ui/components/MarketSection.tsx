@@ -87,12 +87,15 @@ interface MarketSectionProps {
   setMarketModel: React.Dispatch<
     React.SetStateAction<CpmmMarketModel | undefined>
   >;
+  refetchCounter: number;
 }
 
 const MarketSection: React.FC<MarketSectionProps> = ({
   marketInput,
   setMarketInput,
+  marketModel,
   setMarketModel,
+  refetchCounter,
 }) => {
   const classes = useStyles();
   const { pushError, clearError } = useErrors();
@@ -148,7 +151,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
       setMarketModel(marketModel);
     };
     void tryFetchMarket(parsedSlug);
-  }, [marketInput, setMarketModel]);
+  }, [marketInput, setMarketModel, refetchCounter]);
 
   const inputStatus = marketInput
     ? foundMarket

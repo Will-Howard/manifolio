@@ -100,6 +100,7 @@ interface UserSectionProps {
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
+  refetchCounter: number;
 }
 
 const UserSection: React.FC<UserSectionProps> = ({
@@ -107,6 +108,7 @@ const UserSection: React.FC<UserSectionProps> = ({
   setUsernameInput,
   userModel,
   setUserModel,
+  refetchCounter,
 }: UserSectionProps) => {
   const classes = useStyles();
   const { pushError } = useErrors();
@@ -141,7 +143,7 @@ const UserSection: React.FC<UserSectionProps> = ({
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
-  }, [setUserModel, usernameInput]);
+  }, [setUserModel, usernameInput, refetchCounter]);
 
   const userInputStatus = foundUser
     ? "success"

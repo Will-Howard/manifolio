@@ -70,6 +70,8 @@ export default function Home() {
     undefined
   );
 
+  const [refetchCounter, setRefetchCounter] = useState(0);
+
   return (
     <>
       <Head>
@@ -105,6 +107,7 @@ export default function Home() {
               setUsernameInput={setUsernameInput}
               userModel={userModel}
               setUserModel={setUserModel}
+              refetchCounter={refetchCounter}
             />
             <hr className={classes.hr} />
             <MarketSection
@@ -112,6 +115,7 @@ export default function Home() {
               setMarketInput={setMarketInput}
               marketModel={marketModel}
               setMarketModel={setMarketModel}
+              refetchCounter={refetchCounter}
             />
             <hr className={classes.hr} />
             <CalculatorSection
@@ -120,6 +124,8 @@ export default function Home() {
               setUsernameInput={setUsernameInput}
               userModel={userModel}
               marketModel={marketModel}
+              refetchCounter={refetchCounter}
+              setRefetchCounter={setRefetchCounter}
             />
           </div>
         </main>

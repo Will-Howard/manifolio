@@ -133,6 +133,8 @@ interface CalculatorSectionProps {
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel: UserModel | undefined;
   marketModel: CpmmMarketModel | undefined;
+  refetchCounter: number;
+  setRefetchCounter: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const CalculatorSection: React.FC<CalculatorSectionProps> = ({
@@ -141,6 +143,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   setUsernameInput,
   userModel,
   marketModel,
+  refetchCounter,
+  setRefetchCounter,
 }) => {
   const classes = useStyles();
   const { errors } = useErrors();
@@ -256,7 +260,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     void tryFetchUser(apiKeyInput);
     // FIXME setUsernameInput causes rerender if added as a dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKeyInput, authedUsernameFound]);
+  }, [apiKeyInput, authedUsernameFound, refetchCounter]);
 
   const apiKeyInputStatus = authedUsernameFound
     ? "success"
@@ -308,7 +312,15 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       body: JSON.stringify(body),
     });
     logger.info("Created bet:", res);
-  }, [apiKeyInput, betAmount, betOutcome, marketModel?.market.id]);
+
+    setRefetchCounter((prev) => prev + 1);
+  }, [
+    apiKeyInput,
+    betAmount,
+    betOutcome,
+    marketModel?.market.id,
+    setRefetchCounter,
+  ]);
 
   return (
     <>
