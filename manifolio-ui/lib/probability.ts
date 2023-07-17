@@ -92,14 +92,16 @@ function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
 /**
  * Compute the probability mass function of the combined payouts of a set of bets using a Monte Carlo method.
  */
-function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
-  const numSamples = 5000;
+function computePayoutPMFMonteCarlo(
+  bets: PositionModel[],
+  samples: number
+): PMF {
   const seed = 1; // or any number of your choice
   const rng = seedrandom(seed.toString()); // seedrandom is a seeded random number generator library
 
   const sampleOutcomes: number[] = [];
 
-  for (let i = 0; i < numSamples; i++) {
+  for (let i = 0; i < samples; i++) {
     let samplePayout = 0;
     for (const bet of bets) {
       const randomOutcome = rng();
@@ -120,7 +122,7 @@ function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
   // Normalize counts to compute probabilities
   const outcomePMF: PMF = new Map();
   for (const [outcome, count] of outcomeCounts.entries()) {
-    outcomePMF.set(outcome, count / numSamples);
+    outcomePMF.set(outcome, count / samples);
   }
 
   return outcomePMF;
@@ -153,10 +155,11 @@ function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
  */
 export function computePayoutDistribution(
   bets: PositionModel[],
-  method: "cartesian" | "monte-carlo" = "cartesian"
+  method: "cartesian" | "monte-carlo" = "cartesian",
+  samples = 5000
 ): Map<number, number> {
   if (method === "monte-carlo") {
-    return computePayoutPMFMonteCarlo(bets);
+    return computePayoutPMFMonteCarlo(bets, samples);
   } else {
     return computePayoutPMFCartesian(bets);
   }

@@ -208,10 +208,7 @@ export function calculateFullKellyBet({
 
   logger.debug("Available:", { balance, illiquidEV, relativeIlliquidEV });
 
-  const illiquidPmf = computePayoutDistribution(
-    positions,
-    positions.length > 12 ? "monte-carlo" : "cartesian"
-  );
+  const illiquidPmf = userModel.illiquidPmf;
 
   logger.debug("Illiquid PMF:", illiquidPmf.size);
 

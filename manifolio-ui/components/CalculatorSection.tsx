@@ -277,7 +277,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     editableOutcome ??
     (betRecommendation?.outcome ? betRecommendation?.outcome : "YES");
 
-  // TODO calculate bet outcomes for non-recommendation amount
   const { newShares: betShares, probAfter: betProbAfter } = useMemo(
     () =>
       marketModel?.getBetInfo(betOutcome, betAmount) ?? {

@@ -1,6 +1,10 @@
 import { Dictionary, chunk, groupBy } from "lodash";
 import { getManifoldApi } from "./manifold-api";
-import type { PositionModel as PositionModel } from "./probability";
+import {
+  computePayoutDistribution,
+  type PMF,
+  type PositionModel as PositionModel,
+} from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 
 export class UserModel {
@@ -11,6 +15,7 @@ export class UserModel {
   positions: PositionModel[];
   illiquidEV: number;
   portfolioEV: number;
+  illiquidPmf: PMF;
 
   constructor(
     user: User,
@@ -28,6 +33,12 @@ export class UserModel {
       0
     );
     this.portfolioEV = this.balanceAfterLoans + this.illiquidEV;
+
+    this.illiquidPmf = computePayoutDistribution(
+      positions,
+      positions.length > 12 ? "monte-carlo" : "cartesian",
+      50_000
+    );
   }
 }
 
