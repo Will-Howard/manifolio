@@ -6,7 +6,7 @@
 import logger from "@/logger";
 
 const BASE_URL = (() => {
-  return "https://manifold.markets";
+  return process.env.NEXT_PUBLIC_MANIFOLD_API_URL || "https://manifold.markets";
 })();
 
 export class NetworkError extends Error {

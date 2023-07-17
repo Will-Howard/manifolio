@@ -16,6 +16,8 @@ import { Classes } from "jss";
 import { Theme, theme } from "@/styles/theme";
 import classNames from "classnames";
 import { formatInt } from "@/lib/utils";
+import { ManifolioError, useErrors } from "./hooks/useErrors";
+import ErrorMessage from "./ErrorMessage";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -141,6 +143,14 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   marketModel,
 }) => {
   const classes = useStyles();
+  const { errors } = useErrors();
+
+  const hasWarnings = errors.some(
+    (error: ManifolioError) => error.severity === "warning"
+  );
+  const hasErrors = errors.some(
+    (error: ManifolioError) => error.severity === "error"
+  );
 
   const [probabilityInput, setProbabilityInput] = useLocalStorageState(
     "probabilityInput",
@@ -461,14 +471,20 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           />
           <Button
             variant={"contained"}
-            disabled={!authedUsername}
+            disabled={!authedUsername || hasErrors}
             className={classes.placeBetButton}
             onClick={placeBet}
           >
             Place bet
           </Button>
-          {/* TODO warnings and errors here */}
         </div>
+        {errors.length > 0 && (
+          <div>
+            {errors.map((error: ManifolioError, idx: number) => (
+              <ErrorMessage key={`error_${idx}`} error={error} />
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

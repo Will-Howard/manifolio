@@ -21,7 +21,11 @@ const useErrorsInternal = (): ErrorContextType => {
   const [errors, setErrors] = useState<ManifolioError[]>([]);
 
   function pushError(error: ManifolioError) {
-    setErrors((errors) => [...errors, error]);
+    // Don't allow duplicate errors
+    setErrors((errors) => {
+      const newErrors = errors.filter((e) => e.key !== error.key);
+      return [...newErrors, error];
+    });
   }
 
   function clearError(key: string) {

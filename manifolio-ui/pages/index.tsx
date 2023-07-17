@@ -1,6 +1,7 @@
 import CalculatorSection from "@/components/CalculatorSection";
 import MarketSection from "@/components/MarketSection";
 import UserSection from "@/components/UserSection";
+import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
@@ -88,39 +89,41 @@ export default function Home() {
         <meta name="twitter:image" content="/book.svg" />
         <link rel="icon" href="/book.svg" />
       </Head>
-      <main className={classes.main}>
-        <div className={classNames(classes.centralColumn, petrona.className)}>
-          <h1 className={classes.title}>Manifolio</h1>
-          <p className={classes.subtitle}>
-            Bet size calculator for{" "}
-            <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-            {/* TODO */}
-            <a href="https://manifold.markets/">here</a>
-          </p>
-          <div className={classes.headerBorder} />
-          <UserSection
-            usernameInput={usernameInput}
-            setUsernameInput={setUsernameInput}
-            userModel={userModel}
-            setUserModel={setUserModel}
-          />
-          <hr className={classes.hr} />
-          <MarketSection
-            marketInput={marketInput}
-            setMarketInput={setMarketInput}
-            marketModel={marketModel}
-            setMarketModel={setMarketModel}
-          />
-          <hr className={classes.hr} />
-          <CalculatorSection
-            apiKeyInput={apiKeyInput}
-            setApiKeyInput={setApiKeyInput}
-            setUsernameInput={setUsernameInput}
-            userModel={userModel}
-            marketModel={marketModel}
-          />
-        </div>
-      </main>
+      <ErrorProvider>
+        <main className={classes.main}>
+          <div className={classNames(classes.centralColumn, petrona.className)}>
+            <h1 className={classes.title}>Manifolio</h1>
+            <p className={classes.subtitle}>
+              Bet size calculator for{" "}
+              <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
+              {/* TODO */}
+              <a href="https://manifold.markets/">here</a>
+            </p>
+            <div className={classes.headerBorder} />
+            <UserSection
+              usernameInput={usernameInput}
+              setUsernameInput={setUsernameInput}
+              userModel={userModel}
+              setUserModel={setUserModel}
+            />
+            <hr className={classes.hr} />
+            <MarketSection
+              marketInput={marketInput}
+              setMarketInput={setMarketInput}
+              marketModel={marketModel}
+              setMarketModel={setMarketModel}
+            />
+            <hr className={classes.hr} />
+            <CalculatorSection
+              apiKeyInput={apiKeyInput}
+              setApiKeyInput={setApiKeyInput}
+              setUsernameInput={setUsernameInput}
+              userModel={userModel}
+              marketModel={marketModel}
+            />
+          </div>
+        </main>
+      </ErrorProvider>
     </>
   );
 }

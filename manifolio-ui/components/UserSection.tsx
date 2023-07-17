@@ -6,6 +6,7 @@ import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
+import { useErrors } from "./hooks/useErrors";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -102,6 +103,7 @@ const UserSection: React.FC<UserSectionProps> = ({
   setUserModel,
 }: UserSectionProps) => {
   const classes = useStyles();
+  const { pushError } = useErrors();
 
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -118,9 +120,17 @@ const UserSection: React.FC<UserSectionProps> = ({
 
       if (!user) return;
       setUser(user);
+      setUserModel(undefined);
 
       // slow
       const userModel = await buildUserModel(user);
+      pushError({
+        key: "userModel",
+        code: "UNKNOWN_ERROR",
+        message:
+          "An unknown error occurred. Which was then suceeded by yet more errors causing this message to stretch onto several lines",
+        severity: "error",
+      });
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
