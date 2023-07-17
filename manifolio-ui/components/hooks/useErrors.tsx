@@ -1,6 +1,10 @@
 import React, { ReactNode, createContext, useContext, useState } from "react";
 
-export type ManifolioErrorCode = "NETWORK_ERROR" | "UNKNOWN_ERROR";
+export type ManifolioErrorCode =
+  | "NETWORK_ERROR"
+  | "UNKNOWN_ERROR"
+  | "MARKET_CLOSED"
+  | "MARKET_NOT_CPMM";
 
 export type ManifolioError = {
   key: string;

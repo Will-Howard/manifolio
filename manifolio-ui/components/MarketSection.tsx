@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CpmmMarketModel,
   buildCpmmMarketModel,
@@ -8,6 +8,7 @@ import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
 import { FullMarket } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
+import { useErrors } from "./hooks/useErrors";
 
 const useStyles = createUseStyles(() => ({
   inputSection: {
@@ -94,9 +95,39 @@ const MarketSection: React.FC<MarketSectionProps> = ({
   setMarketModel,
 }) => {
   const classes = useStyles();
+  const { pushError, clearError } = useErrors();
 
   const [market, setMarket] = useState<FullMarket | undefined>(undefined);
   const [foundMarket, setFoundMarket] = useState<boolean>(false);
+
+  const errorCheck = useCallback((market: FullMarket): boolean => {
+    let error = false;
+    if (market.closeTime === undefined || market.closeTime < Date.now()) {
+      pushError({
+        key: "marketClosed",
+        code: "MARKET_CLOSED",
+        message: "This market has closed.",
+        severity: "error",
+      });
+      error = true;
+    } else {
+      clearError("marketClosed");
+    }
+
+    if (market.mechanism !== "cpmm-1") {
+      pushError({
+        key: "marketNotCpmm",
+        code: "MARKET_NOT_CPMM",
+        message: "Only CPMM markets are suported.",
+        severity: "error",
+      });
+      error = true;
+    } else {
+      clearError("marketNotCpmm");
+    }
+
+    return error;
+  }, []);
 
   useEffect(() => {
     console.log("marketInput", marketInput);
@@ -109,6 +140,8 @@ const MarketSection: React.FC<MarketSectionProps> = ({
 
       if (!market) return;
       setMarket(market);
+
+      if (errorCheck(market)) return;
 
       // slow
       const marketModel = await buildCpmmMarketModel(market);
