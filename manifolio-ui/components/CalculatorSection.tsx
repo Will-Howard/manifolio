@@ -160,9 +160,9 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     "probabilityInput",
     50
   );
-  const [deferenceFactor, setDeferenceFactor] = useLocalStorageState<number>(
-    "deferenceFactor",
-    0.5
+  const [kellyFraction, setKellyFraction] = useLocalStorageState<number>(
+    "kellyFraction",
+    50
   );
 
   const [betRecommendation, setBetRecommendation] = useState<
@@ -217,10 +217,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      1 - deferenceFactor
+      kellyFraction / 100
     );
   }, [
-    deferenceFactor,
+    kellyFraction,
     marketModel,
     probabilityInput,
     userModel,
@@ -337,14 +337,14 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           className={classes.inputField}
         />
         <InputField
-          label="Safety factor"
+          label="Kelly fraction (%)"
           id="kellyFractionInput"
           type="number"
-          step="0.01"
+          step="1"
           min="0"
-          max="1"
-          value={deferenceFactor}
-          onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
+          max="100"
+          value={kellyFraction}
+          onChange={(e) => setKellyFraction(parseFloat(e.target.value))}
           className={classes.inputField}
         />
       </div>
