@@ -24,6 +24,7 @@ const useStyles = createUseStyles(() => ({
   avatar: {
     borderRadius: "50%",
     margin: "8px 24px 8px 4px",
+    objectFit: "cover",
   },
   detailsTitle: {
     fontWeight: 600,
