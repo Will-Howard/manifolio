@@ -84,8 +84,8 @@ export function convertOdds({
  *
  * @param marketProb The implied probability of the market
  * @param estimatedProb Your estimated probability of the outcome
- * @param deferenceFactor The deference factor k scales down the fraction to bet. A value of 0.5
- * is equivalent to saying "There is a 50% chance that I'm right, and a 50% chance the market is right"
+ * @param deferenceFactor The deference factor k scales down the fraction to bet. A value of 0.6
+ * is equivalent to saying "There is a 60% chance that I'm right, and a 40% chance the market is right"
  */
 export function calculateNaiveKellyFraction({
   marketProb,
@@ -93,9 +93,12 @@ export function calculateNaiveKellyFraction({
   deferenceFactor,
 }: NaiveKellyProps): { fraction: number; outcome: Outcome } {
   const outcome = estimatedProb > marketProb ? "YES" : "NO";
+  const marketWinProb = outcome === "YES" ? marketProb : 1 - marketProb;
+
   // kellyFraction * ((p - p_market) / (1 - p_market))
   const fraction =
-    deferenceFactor * (Math.abs(estimatedProb - marketProb) / (1 - marketProb));
+    deferenceFactor *
+    (Math.abs(estimatedProb - marketProb) / (1 - marketWinProb));
   // clamp fraction between 0 and 1
   const clampedFraction = Math.min(Math.max(fraction, 0), 1);
 
@@ -199,14 +202,21 @@ export function calculateFullKellyBet({
   marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): BetRecommendation {
+  // TODO remove
   const positions = userModel.positions.sort(
     (a, b) => b.probability * b.payout - a.probability * a.payout
   );
-  const balance = userModel.balanceAfterLoans;
+  const balance = userModel.balance;
+  const balanceAfterLoans = userModel.balanceAfterLoans;
   const illiquidEV = userModel.illiquidEV;
-  const relativeIlliquidEV = illiquidEV / balance;
+  const relativeIlliquidEV = illiquidEV / balanceAfterLoans;
 
-  logger.debug("Available:", { balance, illiquidEV, relativeIlliquidEV });
+  logger.debug("Available:", {
+    balance,
+    balanceAfterLoans,
+    illiquidEV,
+    relativeIlliquidEV,
+  });
 
   const illiquidPmf = userModel.illiquidPmf;
 
@@ -218,7 +228,7 @@ export function calculateFullKellyBet({
     marketProb: startingMarketProb,
     estimatedProb,
     deferenceFactor,
-    bankroll: balance,
+    bankroll: balanceAfterLoans,
   });
 
   const pYes =
@@ -243,7 +253,7 @@ export function calculateFullKellyBet({
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
     // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
-    const A = pWin * balance * englishOddsDerivative;
+    const A = pWin * balanceAfterLoans * englishOddsDerivative;
     const B = englishOddsEstimate - A;
     const C = -(pWin * englishOddsEstimate - qWin);
 
@@ -251,7 +261,7 @@ export function calculateFullKellyBet({
     // root of Af^2 + Bf + C = 0 directly for some reason
     const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
 
-    const newBetEstimate = f * balance;
+    const newBetEstimate = f * balanceAfterLoans;
 
     // This is the difference we want to be zero.
     return newBetEstimate - betEstimate;
@@ -269,13 +279,13 @@ export function calculateFullKellyBet({
     const englishOddsEstimate = englishOdds(betEstimate);
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
-    const f = betEstimate / balance;
+    const f = betEstimate / balanceAfterLoans;
     const I = relativeIlliquidEV;
 
     const A = (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
     const B = -qWin / (1 + I - f);
     const C =
-      (pWin * f * englishOddsDerivative * balance) /
+      (pWin * f * englishOddsDerivative * balanceAfterLoans) /
       (1 + I + f * englishOddsEstimate);
 
     return A + B + C;
@@ -289,10 +299,10 @@ export function calculateFullKellyBet({
     const englishOddsEstimate = englishOdds(betEstimate);
     const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
 
-    const f = betEstimate / balance;
+    const f = betEstimate / balanceAfterLoans;
 
     const integrand = (payout: number) => {
-      const I = payout / balance;
+      const I = payout / balanceAfterLoans;
 
       // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
       // treat cases where the user is betting _more_ than their balance as if they are betting
@@ -305,7 +315,7 @@ export function calculateFullKellyBet({
         (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
       const B = -qWin / bDenom;
       const C =
-        (pWin * f * englishOddsDerivative * balance) /
+        (pWin * f * englishOddsDerivative * balanceAfterLoans) /
         (1 + I + f * englishOddsEstimate);
 
       return A + B + C;
@@ -315,24 +325,25 @@ export function calculateFullKellyBet({
     return integral;
   };
 
-  const optimalBetBalanceOnly = findRoot(
-    dEVdBetBalanceOnly,
-    0,
-    naiveKellyAmount
-  );
+  const optimalBetBalanceOnly =
+    balanceAfterLoans > 0
+      ? findRoot(dEVdBetBalanceOnly, 0, naiveKellyAmount)
+      : 0;
+
   // If the market were perfectly liquid for bets above optimalBetBalanceOnly, and the users illiquid investments
   // had a 100% chance of paying out, this would be the optimal bet
   const upperBound = Math.min(
     optimalBetBalanceOnly * (1 + relativeIlliquidEV),
-    0.99 * balance
+    0.99 * balanceAfterLoans
   );
 
-  const optimalBet = findRoot(dEVdBet, optimalBetBalanceOnly * 0.5, upperBound);
   const optimalBetCashedOut = findRoot(
     dEVdBetIlliquidCashedOut,
     optimalBetBalanceOnly * 0.5,
     upperBound
   );
+
+  const optimalBet = findRoot(dEVdBet, optimalBetBalanceOnly * 0.5, upperBound);
 
   logger.debug({
     optimalBetBalanceOnly,

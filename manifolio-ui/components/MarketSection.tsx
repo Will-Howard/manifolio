@@ -185,7 +185,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
 
   // User's position
   const marketId = market?.id;
-  const userPosition: JSX.Element | undefined = useMemo(() => {
+  const userPosition: JSX.Element | string = (() => {
     const position =
       marketId && userModel?.positions.find((p) => p.contractId === marketId);
 
@@ -206,7 +206,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
         shares
       </span>
     );
-  }, [classes.green, classes.red, marketId, userModel?.positions]);
+  })();
 
   const marketEndTime = market?.closeTime;
   const marketEndTimeString = useMemo(
@@ -253,10 +253,10 @@ const MarketSection: React.FC<MarketSectionProps> = ({
             classes={classes}
           />
           <Detail
-              label="Est. time to resolution"
-              value={marketEndTimeString}
-              classes={classes}
-            />
+            label="Est. time to resolution"
+            value={marketEndTimeString}
+            classes={classes}
+          />
         </div>
       </div>
     </>
