@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CpmmMarketModel,
   buildCpmmMarketModel,
@@ -9,8 +9,12 @@ import { createUseStyles } from "react-jss";
 import { FullMarket } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import { useErrors } from "./hooks/useErrors";
+import { UserModel } from "@/lib/user";
+import { Theme } from "@/styles/theme";
+import classNames from "classnames";
+import moment from "moment";
 
-const useStyles = createUseStyles(() => ({
+const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
     display: "flex",
     flexDirection: "row",
@@ -30,6 +34,12 @@ const useStyles = createUseStyles(() => ({
   detailsTitle: {
     fontWeight: 600,
     margin: "4px 0",
+    // truncate to 2 lines using -webkit-line-clamp
+    display: "-webkit-box",
+    "-webkit-line-clamp": 2,
+    "-webkit-box-orient": "vertical",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
   detailsContainer: {
     display: "flex",
@@ -45,6 +55,12 @@ const useStyles = createUseStyles(() => ({
   },
   value: {
     fontWeight: 600,
+  },
+  red: {
+    color: theme.red,
+  },
+  green: {
+    color: theme.green,
   },
 }));
 
@@ -66,7 +82,7 @@ function getSlug(input: string | undefined): string {
 
 interface DetailProps {
   label: string;
-  value: string;
+  value: string | JSX.Element;
   isInverse?: boolean;
   classes: Classes;
 }
@@ -87,6 +103,7 @@ interface MarketSectionProps {
   setMarketModel: React.Dispatch<
     React.SetStateAction<CpmmMarketModel | undefined>
   >;
+  userModel?: UserModel;
   refetchCounter: number;
 }
 
@@ -95,6 +112,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
   setMarketInput,
   marketModel,
   setMarketModel,
+  userModel,
   refetchCounter,
 }) => {
   const classes = useStyles();
@@ -151,7 +169,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
       setMarketModel(marketModel);
     };
     void tryFetchMarket(parsedSlug);
-  }, [marketInput, setMarketModel, refetchCounter]);
+  }, [marketInput, setMarketModel, refetchCounter, errorCheck]);
 
   const inputStatus = marketInput
     ? foundMarket
@@ -165,7 +183,36 @@ const MarketSection: React.FC<MarketSectionProps> = ({
     creatorAvatarUrl = "https://manifold.markets/logo.svg",
   } = market || {};
 
-  // TODO truncate question around 2 lines on mobile
+  // User's position
+  const marketId = market?.id;
+  const userPosition: JSX.Element | undefined = useMemo(() => {
+    const position =
+      marketId && userModel?.positions.find((p) => p.contractId === marketId);
+
+    if (!position) return "—";
+    const outcome = position.outcome;
+
+    return (
+      <span>
+        {position.payout.toFixed(0)}{" "}
+        <span
+          className={classNames({
+            [classes.red]: outcome === "NO",
+            [classes.green]: outcome === "YES",
+          })}
+        >
+          {outcome}
+        </span>{" "}
+        shares
+      </span>
+    );
+  }, [classes.green, classes.red, marketId, userModel?.positions]);
+
+  const marketEndTime = market?.closeTime;
+  const marketEndTimeString = useMemo(
+    () => (marketEndTime ? moment(marketEndTime).fromNow(true) : "—"),
+    [marketEndTime]
+  );
 
   return (
     <>
@@ -200,8 +247,16 @@ const MarketSection: React.FC<MarketSectionProps> = ({
             }
             classes={classes}
           />
-          {/* TODO expected time to close */}
-          {/* TODO your position */}
+          <Detail
+            label="Your position"
+            value={userPosition}
+            classes={classes}
+          />
+          <Detail
+              label="Est. time to resolution"
+              value={marketEndTimeString}
+              classes={classes}
+            />
         </div>
       </div>
     </>

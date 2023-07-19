@@ -2,17 +2,19 @@ import { Dictionary, chunk, groupBy } from "lodash";
 import { getManifoldApi } from "./manifold-api";
 import {
   computePayoutDistribution,
+  ManifoldPosition,
   type PMF,
   type PositionModel as PositionModel,
 } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
+import { Outcome } from "./calculate";
 
 export class UserModel {
   user: User;
   balance: number;
   loans: number;
   balanceAfterLoans: number;
-  positions: PositionModel[];
+  positions: ManifoldPosition[];
   illiquidEV: number;
   portfolioEV: number;
   illiquidPmf: PMF;
@@ -21,7 +23,7 @@ export class UserModel {
     user: User,
     balance: number,
     loans: number,
-    positions: PositionModel[]
+    positions: ManifoldPosition[]
   ) {
     this.user = user;
     this.balance = balance;
@@ -156,6 +158,7 @@ export const buildUserModel = async (
       payout,
       loan: bet.netLoan,
       contractId: market.id,
+      outcome: isYesBet ? "YES" : ("NO" as Outcome),
       marketName: market.question,
       // ev: probability * payout, // DEBUG
     };

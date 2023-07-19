@@ -251,6 +251,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
       if (!authedUsername) {
         setAuthedUsername(undefined);
+        return;
       }
 
       logger.info("Fetched authenticated user:", authedUsername);

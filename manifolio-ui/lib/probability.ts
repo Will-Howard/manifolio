@@ -1,5 +1,5 @@
 import seedrandom from "seedrandom";
-import { UnivariateFunction } from "./calculate";
+import { Outcome, UnivariateFunction } from "./calculate";
 
 /**
  * A probability mass function is a mapping from a payout to the probability of that payout.
@@ -16,6 +16,11 @@ export type PositionModel = {
   probability: number;
   payout: number;
   loan?: number;
+};
+
+export type ManifoldPosition = PositionModel & {
+  contractId: string;
+  outcome: Outcome;
 };
 
 /**

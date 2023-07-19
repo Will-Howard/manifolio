@@ -115,6 +115,7 @@ export default function Home() {
               setMarketInput={setMarketInput}
               marketModel={marketModel}
               setMarketModel={setMarketModel}
+              userModel={userModel}
               refetchCounter={refetchCounter}
             />
             <hr className={classes.hr} />
