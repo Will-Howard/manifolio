@@ -304,9 +304,6 @@ export function calculateFullKellyBet({
 
     const absBetEstimate = Math.abs(betEstimate);
 
-    // Note: technically there should be an englishOddsEstimateYes and and
-    // englishOddsEstimateNo, but in reality when e.g. fNo is 0, only englishOddsEstimateYes
-    // will appear in non-zero terms anyway, and vice versa
     const bYes = fYes && englishOdds(absBetEstimate, "YES");
     const dbYesdBetYes =
       fYes && D((x: number) => englishOdds(x, "YES"), absBetEstimate, 0.1);
@@ -316,7 +313,7 @@ export function calculateFullKellyBet({
 
     const I = effectiveRelativeIlliquidEV;
 
-    // E = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
+    // EV = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
     const A = dfYesdf * ((pYes * bYes) / (1 + I + fYes * bYes - fNo));
     const B = dfNodf * (-pYes / (1 + I + fYes * bYes - fNo));
 
@@ -332,28 +329,6 @@ export function calculateFullKellyBet({
       dfNodf *
       ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
         (1 + I + fNo * bNo - fYes));
-
-    // console.log({
-    //   betEstimate,
-    //   relativeBetEstimate,
-    //   fYes,
-    //   fNo,
-    //   dfYesdf,
-    //   dfNodf,
-    //   absBetEstimate,
-    //   bYes,
-    //   dbYesdBetYes,
-    //   bNo,
-    //   dbNodBetNo,
-    //   I,
-    //   A,
-    //   B,
-    //   C,
-    //   E,
-    //   F,
-    //   G,
-    //   result: A + B + C + E + F + G,
-    // });
 
     const result = A + B + C + E + F + G;
     return result;
@@ -385,46 +360,93 @@ export function calculateFullKellyBet({
    * give the true optimal bet, and be between the other two values
    */
   const dEVdBet = (betEstimate: number) => {
-    const englishOddsEstimate = englishOdds(betEstimate, outcome);
-    const englishOddsDerivative = D(
-      (x: number) => englishOdds(x, outcome),
-      betEstimate,
-      0.1
-    );
+    // Bad things happen if the bet estimate is exactly 0
+    if (betEstimate === 0) {
+      betEstimate = 1e-3;
+    }
 
-    const f = betEstimate / balanceAfterLoans;
+    const relativeBetEstimate = betEstimate / balanceAfterLoans;
+
+    const fYes = Math.max(relativeBetEstimate, 0);
+    const fNo = Math.max(-relativeBetEstimate, 0);
+
+    const dfYesdf = betEstimate > 0 ? 1 : 0;
+    const dfNodf = betEstimate < 0 ? -1 : 0;
+
+    const absBetEstimate = Math.abs(betEstimate);
+
+    const bYes = fYes && englishOdds(absBetEstimate, "YES");
+    const dbYesdBetYes =
+      fYes && D((x: number) => englishOdds(x, "YES"), absBetEstimate, 0.1);
+    const bNo = fNo && englishOdds(absBetEstimate, "NO");
+    const dbNodBetNo =
+      fNo && D((x: number) => englishOdds(x, "NO"), absBetEstimate, 0.1);
 
     const integrand = (payout: number) => {
       const I = payout / balanceAfterLoans;
 
-      // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
-      // treat cases where the user is betting _more_ than their balance as if they are betting
-      // extremely close to their balance (essentially apply a large negative penalty).
-      // The "/ Math.abs(1 + I - f)" is to hopefully provide directional information to the root
-      // solver to improve numerical stability
-      const bDenom = 1 + I - f > 0 ? 1 + I - f : 1e-12 / Math.abs(1 + I - f);
+      // EV = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
+      const A = dfYesdf * ((pYes * bYes) / (1 + I + fYes * bYes - fNo));
+      const B = dfNodf * (-pYes / (1 + I + fYes * bYes - fNo));
 
-      const A =
-        (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
-      const B = -qWin / bDenom;
-      const C =
-        (pWin * f * englishOddsDerivative * balanceAfterLoans) /
-        (1 + I + f * englishOddsEstimate);
+      const C = dfNodf * ((qYes * bNo) / (1 + I + fNo * bNo - fYes));
+      // D is taken
+      const E = dfYesdf * (-qYes / (1 + I + fNo * bNo - fYes));
 
-      return A + B + C;
+      const F =
+        dfYesdf *
+        ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
+          (1 + I + fYes * bYes - fNo));
+      const G =
+        dfNodf *
+        ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
+          (1 + I + fNo * bNo - fYes));
+
+      const result = A + B + C + E + F + G;
+      return result;
     };
+    // const englishOddsEstimate = englishOdds(betEstimate, outcome);
+    // const englishOddsDerivative = D(
+    //   (x: number) => englishOdds(x, outcome),
+    //   betEstimate,
+    //   0.1
+    // );
+
+    // const f = betEstimate / balanceAfterLoans;
+
+    // const integrand = (payout: number) => {
+    //   const I = payout / balanceAfterLoans;
+
+    //   // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
+    //   // treat cases where the user is betting _more_ than their balance as if they are betting
+    //   // extremely close to their balance (essentially apply a large negative penalty).
+    //   // The "/ Math.abs(1 + I - f)" is to hopefully provide directional information to the root
+    //   // solver to improve numerical stability
+    //   const bDenom = 1 + I - f > 0 ?  : 1e-12 / Math.abs(1 + I - f);
+
+    //   const A =
+    //     (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
+    //   const B = -qWin / 1 + I - f;
+    //   const C =
+    //     (pWin * f * englishOddsDerivative * balanceAfterLoans) /
+    //     (1 + I + f * englishOddsEstimate);
+
+    //   return A + B + C;
+    // };
     const integral = integrateOverPmf(integrand, illiquidPmf);
 
     return integral;
   };
 
-  const lowerBound = -naiveKellyAmount;
-  const upperBound = naiveKellyAmount;
-
   // TODO refine these bounds
   const optimalBetBalanceOnly =
     balanceAfterLoans > 0
-      ? findRoot(dEVdBetBalanceOnly, lowerBound, upperBound, "binary")
+      ? findRoot(
+          dEVdBetBalanceOnly,
+          -naiveKellyAmount,
+          naiveKellyAmount,
+          "binary"
+        )
       : 0;
 
   // If the market were perfectly liquid for bets above optimalBetBalanceOnly, and the users illiquid investments
@@ -441,30 +463,25 @@ export function calculateFullKellyBet({
     "binary"
   );
 
-  const optimalBet = findRoot(
-    dEVdBet,
-    Math.abs(optimalBetBalanceOnly),
-    Math.abs(optimalBetCashedOut),
-    "binary"
-  );
+  const bounds = [optimalBetBalanceOnly, optimalBetCashedOut].sort();
+  const optimalBet = findRoot(dEVdBet, bounds[0], bounds[1], "binary");
+  const optimalOutcome = optimalBet > 0 ? "YES" : "NO";
 
   logger.debug({
     optimalBetBalanceOnly,
     optimalBet,
-    // optimalBetCashedOut,
-    // upperBound,
+    optimalBetCashedOut,
   });
 
   // get the shares and pAfter
-  // TODO maybe this isn't needed
   const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
     outcome,
     optimalBet
   );
 
   return {
-    amount: optimalBet,
-    outcome,
+    amount: Math.abs(optimalBet),
+    outcome: optimalOutcome,
     shares,
     pAfter: pAfter ?? 0,
   };
