@@ -17,7 +17,7 @@ export class UserModel {
   positions: ManifoldPosition[];
   illiquidEV: number;
   portfolioEV: number;
-  illiquidPmf: PMF;
+  illiquidPmfCache: Record<string, PMF>;
 
   constructor(
     user: User,
@@ -36,11 +36,45 @@ export class UserModel {
     );
     this.portfolioEV = this.balanceAfterLoans + this.illiquidEV;
 
-    this.illiquidPmf = computePayoutDistribution(
-      positions,
-      positions.length > 12 ? "monte-carlo" : "cartesian",
+    // First calculate the PMF _not_ exlcuding any markets, for the case where they
+    // bet on something they haven't bet on before
+    this.illiquidPmfCache = {
+      all: computePayoutDistribution(
+        positions,
+        positions.length > 12 ? "monte-carlo" : "cartesian",
+        50_000
+      ),
+    };
+  }
+
+  /**
+   * Get the probability mass function of the payouts of the user's portfolio, possibly excluding the market
+   * with the given ID (for use when they are betting on a market they already have a position in)
+   * @param excludingMarketId
+   * @returns
+   */
+  getIlliquidPmf(excludingMarketId?: string): PMF {
+    if (!excludingMarketId) {
+      return this.illiquidPmfCache["all"];
+    }
+
+    if (this.illiquidPmfCache[excludingMarketId]) {
+      return this.illiquidPmfCache[excludingMarketId];
+    }
+
+    const positionsExcludingMarket = this.positions.filter(
+      (pos) => pos.contractId !== excludingMarketId
+    );
+    this.illiquidPmfCache[excludingMarketId] = computePayoutDistribution(
+      positionsExcludingMarket,
+      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian",
       50_000
     );
+    return this.illiquidPmfCache[excludingMarketId];
+  }
+
+  getPosition(contractId: string): ManifoldPosition | undefined {
+    return this.positions.find((pos) => pos.contractId === contractId);
   }
 }
 

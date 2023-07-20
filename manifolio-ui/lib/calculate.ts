@@ -202,10 +202,10 @@ export function calculateFullKellyBet({
   marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): BetRecommendation {
-  // TODO remove
-  const positions = userModel.positions.sort(
-    (a, b) => b.probability * b.payout - a.probability * a.payout
-  );
+  const currentPosition = userModel.getPosition(marketModel.market.id);
+  // TODO:
+  // - work through all the maths again for the case where betting can return you money immediately
+
   const balance = userModel.balance;
   const balanceAfterLoans = userModel.balanceAfterLoans;
   const illiquidEV = userModel.illiquidEV;
@@ -218,7 +218,7 @@ export function calculateFullKellyBet({
     relativeIlliquidEV,
   });
 
-  const illiquidPmf = userModel.illiquidPmf;
+  const illiquidPmf = userModel.getIlliquidPmf(currentPosition?.contractId);
 
   logger.debug("Illiquid PMF:", illiquidPmf.size);
 
