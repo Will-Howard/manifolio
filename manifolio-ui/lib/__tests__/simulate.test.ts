@@ -200,6 +200,15 @@ test("Test for getBetRecommendation under basic Kelly betting scenario (high liq
         userModel,
       });
 
+    // console.log({
+    //   marketProb,
+    //   estimatedProb,
+    //   fullRecAmount,
+    //   fullRecOutcome,
+    //   naiveKellyAmount,
+    //   naiveKellyOutcome,
+    // });
+
     expect(naiveKellyOutcome).toBe(fullRecOutcome);
     expect(Math.abs(naiveKellyAmount - fullRecAmount)).toBeLessThan(
       (fullRecAmount + naiveKellyAmount) / 100

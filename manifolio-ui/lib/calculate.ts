@@ -2,6 +2,7 @@ import logger from "@/logger";
 import { CpmmMarketModel } from "./market";
 import { computePayoutDistribution, integrateOverPmf } from "./probability";
 import { UserModel } from "./user";
+import { binarySearch } from "./vendor/manifold-helpers";
 
 type NaiveKellyProps = {
   marketProb: number;
@@ -128,9 +129,18 @@ export function calculateNaiveKellyBet({
 /**
  * Differentiate a function numerically
  */
-function D(f: UnivariateFunction, x: number, h = 1e-3): number {
-  const fPlus = f(x + h);
-  const fMinus = f(x - h);
+function D(
+  f: UnivariateFunction,
+  x: number,
+  h = 1e-3,
+  bounds?: [number, number]
+): number {
+  // upperBound and lowerBound are x + h, x - h, unless they are outside the bounds
+  const upperBound = bounds ? Math.min(x + h, bounds[1]) : x + h;
+  const lowerBound = bounds ? Math.max(x - h, bounds[0]) : x - h;
+
+  const fPlus = f(upperBound);
+  const fMinus = f(lowerBound);
 
   return (fPlus - fMinus) / (2 * h);
 }
@@ -142,9 +152,33 @@ export function findRoot(
   f: UnivariateFunction,
   lowerBound: number,
   upperBound: number,
+  method: "newton" | "binary" = "newton",
   iterations = 20,
   tolerance = 1e-6
 ): number {
+  if (method === "binary") {
+    const comparator = f(upperBound) > f(lowerBound) ? f : (x: number) => -f(x);
+    let mid = 0;
+    let min = lowerBound;
+    let max = upperBound;
+
+    for (let i = 0; i < iterations; i++) {
+      mid = min + (max - min) / 2;
+
+      // Break once we've reached max precision.
+      if (mid === min || mid === max) break;
+
+      const comparison = comparator(mid);
+      if (Math.abs(comparison) < tolerance) break;
+      else if (comparison > 0) {
+        max = mid;
+      } else {
+        min = mid;
+      }
+    }
+    return mid;
+  }
+
   let x = (lowerBound + upperBound) / 2;
 
   for (let i = 0; i < iterations; i++) {
@@ -203,8 +237,10 @@ export function calculateFullKellyBet({
   userModel: UserModel;
 }): BetRecommendation {
   const currentPosition = userModel.getPosition(marketModel.market.id);
-  // TODO:
-  // - work through all the maths again for the case where betting can return you money immediately
+  const yesShares =
+    currentPosition?.outcome === "YES" ? currentPosition.payout : 0;
+  const noShares =
+    currentPosition?.outcome === "NO" ? currentPosition.payout : 0;
 
   const balance = userModel.balance;
   const balanceAfterLoans = userModel.balanceAfterLoans;
@@ -238,9 +274,89 @@ export function calculateFullKellyBet({
   const pWin = outcome === "YES" ? pYes : qYes;
   const qWin = 1 - pWin;
 
-  const englishOdds = (betEstimate: number) => {
-    const { newShares } = marketModel.getBetInfo(outcome, betEstimate);
-    return (newShares - betEstimate) / betEstimate;
+  const englishOdds = (absBetEstimate: number, betOutcome: Outcome) => {
+    const { newShares } = marketModel.getBetInfo(betOutcome, absBetEstimate);
+    return (newShares - absBetEstimate) / absBetEstimate;
+  };
+
+  /**
+   * The derivative of the EV of the bet with respect to the bet amount, treating the bankroll
+   * as fixed (i.e. not considering the variation in outcome of the user's other positions). This is
+   * use below to calculate upper and lower bounds on the optimal bet before doing a more expensive
+   * integration
+   */
+  const dEVdBetFixedBankroll = (
+    betEstimate: number,
+    effectiveRelativeIlliquidEV: number
+  ) => {
+    // Bad things happen if the bet estimate is exactly 0
+    if (betEstimate === 0) {
+      betEstimate = 1e-3;
+    }
+
+    const relativeBetEstimate = betEstimate / balanceAfterLoans;
+
+    const fYes = Math.max(relativeBetEstimate, 0);
+    const fNo = Math.max(-relativeBetEstimate, 0);
+
+    const dfYesdf = betEstimate > 0 ? 1 : 0;
+    const dfNodf = betEstimate < 0 ? -1 : 0;
+
+    const absBetEstimate = Math.abs(betEstimate);
+
+    // Note: technically there should be an englishOddsEstimateYes and and
+    // englishOddsEstimateNo, but in reality when e.g. fNo is 0, only englishOddsEstimateYes
+    // will appear in non-zero terms anyway, and vice versa
+    const bYes = fYes && englishOdds(absBetEstimate, "YES");
+    const dbYesdBetYes =
+      fYes && D((x: number) => englishOdds(x, "YES"), absBetEstimate, 0.1);
+    const bNo = fNo && englishOdds(absBetEstimate, "NO");
+    const dbNodBetNo =
+      fNo && D((x: number) => englishOdds(x, "NO"), absBetEstimate, 0.1);
+
+    const I = effectiveRelativeIlliquidEV;
+
+    // E = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
+    const A = dfYesdf * ((pYes * bYes) / (1 + I + fYes * bYes - fNo));
+    const B = dfNodf * (-pYes / (1 + I + fYes * bYes - fNo));
+
+    const C = dfNodf * ((qYes * bNo) / (1 + I + fNo * bNo - fYes));
+    // D is taken
+    const E = dfYesdf * (-qYes / (1 + I + fNo * bNo - fYes));
+
+    const F =
+      dfYesdf *
+      ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
+        (1 + I + fYes * bYes - fNo));
+    const G =
+      dfNodf *
+      ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
+        (1 + I + fNo * bNo - fYes));
+
+    // console.log({
+    //   betEstimate,
+    //   relativeBetEstimate,
+    //   fYes,
+    //   fNo,
+    //   dfYesdf,
+    //   dfNodf,
+    //   absBetEstimate,
+    //   bYes,
+    //   dbYesdBetYes,
+    //   bNo,
+    //   dbNodBetNo,
+    //   I,
+    //   A,
+    //   B,
+    //   C,
+    //   E,
+    //   F,
+    //   G,
+    //   result: A + B + C + E + F + G,
+    // });
+
+    const result = A + B + C + E + F + G;
+    return result;
   };
 
   /**
@@ -248,24 +364,9 @@ export function calculateFullKellyBet({
    * user's balance, not other illiquid investments they have. This should give an optimal bet
    * _lower_ than the actual optimum
    */
-  const dEVdBetBalanceOnly = (betEstimate: number) => {
-    const englishOddsEstimate = englishOdds(betEstimate);
-    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
+  const dEVdBetBalanceOnly = (betEstimate: number) =>
+    dEVdBetFixedBankroll(betEstimate, 0);
 
-    // Af^2 + Bf + C = 0 at optimum for _fraction_ of bankroll f
-    const A = pWin * balanceAfterLoans * englishOddsDerivative;
-    const B = englishOddsEstimate - A;
-    const C = -(pWin * englishOddsEstimate - qWin);
-
-    // Using this intermediate root finding is _much_ more numerically stable than finding the
-    // root of Af^2 + Bf + C = 0 directly for some reason
-    const f = A === 0 ? -C / B : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
-
-    const newBetEstimate = f * balanceAfterLoans;
-
-    // This is the difference we want to be zero.
-    return newBetEstimate - betEstimate;
-  };
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
    * user's balance and treating the illiquid investments as if they are a lump of cash
@@ -275,29 +376,21 @@ export function calculateFullKellyBet({
    * log wealth, which means scenarios where the illiquid investments don't pay out much hurt the EV more
    * than the other way around.
    */
-  const dEVdBetIlliquidCashedOut = (betEstimate: number) => {
-    const englishOddsEstimate = englishOdds(betEstimate);
-    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
+  const dEVdBetIlliquidCashedOut = (betEstimate: number) =>
+    dEVdBetFixedBankroll(betEstimate, relativeIlliquidEV);
 
-    const f = betEstimate / balanceAfterLoans;
-    const I = relativeIlliquidEV;
-
-    const A = (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
-    const B = -qWin / (1 + I - f);
-    const C =
-      (pWin * f * englishOddsDerivative * balanceAfterLoans) /
-      (1 + I + f * englishOddsEstimate);
-
-    return A + B + C;
-  };
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
    * user's balance and modelling the range of outcomes of the illiquid investments. This should
    * give the true optimal bet, and be between the other two values
    */
   const dEVdBet = (betEstimate: number) => {
-    const englishOddsEstimate = englishOdds(betEstimate);
-    const englishOddsDerivative = D(englishOdds, betEstimate, 0.1);
+    const englishOddsEstimate = englishOdds(betEstimate, outcome);
+    const englishOddsDerivative = D(
+      (x: number) => englishOdds(x, outcome),
+      betEstimate,
+      0.1
+    );
 
     const f = betEstimate / balanceAfterLoans;
 
@@ -325,31 +418,41 @@ export function calculateFullKellyBet({
     return integral;
   };
 
+  const lowerBound = -naiveKellyAmount;
+  const upperBound = naiveKellyAmount;
+
+  // TODO refine these bounds
   const optimalBetBalanceOnly =
     balanceAfterLoans > 0
-      ? findRoot(dEVdBetBalanceOnly, 0, naiveKellyAmount)
+      ? findRoot(dEVdBetBalanceOnly, lowerBound, upperBound, "binary")
       : 0;
 
   // If the market were perfectly liquid for bets above optimalBetBalanceOnly, and the users illiquid investments
   // had a 100% chance of paying out, this would be the optimal bet
-  const upperBound = Math.min(
-    optimalBetBalanceOnly * (1 + relativeIlliquidEV),
+  const finalUpperBound = Math.min(
+    Math.abs(optimalBetBalanceOnly * (1 + relativeIlliquidEV)),
     0.99 * balanceAfterLoans
   );
 
   const optimalBetCashedOut = findRoot(
     dEVdBetIlliquidCashedOut,
-    optimalBetBalanceOnly * 0.5,
-    upperBound
+    -finalUpperBound,
+    finalUpperBound,
+    "binary"
   );
 
-  const optimalBet = findRoot(dEVdBet, optimalBetBalanceOnly * 0.5, upperBound);
+  const optimalBet = findRoot(
+    dEVdBet,
+    Math.abs(optimalBetBalanceOnly),
+    Math.abs(optimalBetCashedOut),
+    "binary"
+  );
 
   logger.debug({
     optimalBetBalanceOnly,
     optimalBet,
-    optimalBetCashedOut,
-    upperBound,
+    // optimalBetCashedOut,
+    // upperBound,
   });
 
   // get the shares and pAfter
