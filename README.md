@@ -1,2 +1,3 @@
-# manifolio
-Bet sizing tool for manifold markets
+# Manifolio
+
+This is a bet size calculator for [manifold markets](https://manifold.markets/)

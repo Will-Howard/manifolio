@@ -98,8 +98,7 @@ export default function Home() {
             <p className={classes.subtitle}>
               Bet size calculator for{" "}
               <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-              {/* TODO */}
-              <a href="https://manifold.markets/">here</a>
+              <a href="https://github.com/Will-Howard/manifolio/">here</a>
             </p>
             <div className={classes.headerBorder} />
             <UserSection
