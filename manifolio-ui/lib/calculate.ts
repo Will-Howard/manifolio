@@ -15,13 +15,14 @@ export type Outcome = "YES" | "NO";
 export type BetRecommendation = {
   amount: number;
   outcome: Outcome;
-  shares: number;
+  newShares: number;
   pAfter: number;
+  positionAfter: { yesShares: number; noShares: number; cash: number };
 };
 
 export type BetRecommendationFull = BetRecommendation & {
-  dailyRoi: number;
-  dailyTotalRoi: number;
+  annualRoi: number;
+  annualTotalRoi: number;
 };
 
 export type AsyncUnivariateFunction = (input: number) => Promise<number>;
@@ -82,17 +83,24 @@ export function convertOdds({
 
 /**
  * Calculate the result of the naive Kelly formula: f = k * (p - p_market) / (1 - p_market)
+ * Multiply the naive Kelly fraction by the bankroll to get the amount to bet
  *
  * @param marketProb The implied probability of the market
  * @param estimatedProb Your estimated probability of the outcome
  * @param deferenceFactor The deference factor k scales down the fraction to bet. A value of 0.6
  * is equivalent to saying "There is a 60% chance that I'm right, and a 40% chance the market is right"
+ * @param bankroll The bankroll amount
  */
-export function calculateNaiveKellyFraction({
+export function calculateNaiveKellyBet({
   marketProb,
   estimatedProb,
   deferenceFactor,
-}: NaiveKellyProps): { fraction: number; outcome: Outcome } {
+  bankroll,
+}: NaiveKellyProps & { bankroll: number }): {
+  fraction: number;
+  amount: number;
+  outcome: Outcome;
+} {
   const outcome = estimatedProb > marketProb ? "YES" : "NO";
   const marketWinProb = outcome === "YES" ? marketProb : 1 - marketProb;
 
@@ -102,26 +110,78 @@ export function calculateNaiveKellyFraction({
     (Math.abs(estimatedProb - marketProb) / (1 - marketWinProb));
   // clamp fraction between 0 and 1
   const clampedFraction = Math.min(Math.max(fraction, 0), 1);
+  const amount = bankroll * clampedFraction;
 
   return {
     fraction: clampedFraction,
+    amount,
     outcome,
   };
 }
 
 /**
+ * Calculate the result of the naive Kelly formula: f = k * (p - p_market) / (1 - p_market)
  * Multiply the naive Kelly fraction by the bankroll to get the amount to bet
+ *
+ * @param marketProb The implied probability of the market
+ * @param estimatedProb Your estimated probability of the outcome
+ * @param deferenceFactor The deference factor k scales down the fraction to bet. A value of 0.6
+ * is equivalent to saying "There is a 60% chance that I'm right, and a 40% chance the market is right"
+ * @param bankroll The bankroll amount
  */
-export function calculateNaiveKellyBet({
+export function calculateNaiveKellyBetWithPosition({
+  marketProb,
+  estimatedProb,
+  deferenceFactor,
   bankroll,
-  ...fractionOnlyProps
-}: NaiveKellyProps & { bankroll: number }): {
+  position: { yesShares, noShares } = { yesShares: 0, noShares: 0 },
+}: NaiveKellyProps & {
+  bankroll: number;
+  position?: { yesShares: number; noShares: number };
+}): {
+  fraction: number;
   amount: number;
   outcome: Outcome;
 } {
-  const { fraction, outcome } = calculateNaiveKellyFraction(fractionOnlyProps);
+  const deferenceAdjustedProb =
+    estimatedProb * deferenceFactor + (1 - deferenceFactor) * marketProb;
+
+  const calculateAssumingOutcome = (outcome: Outcome) => {
+    // f = pWin * (1 + lossShares) - (qWin * (1 + winShares)) / b
+    // where b is englishOdds, = (1 / marketProb) - 1
+
+    const pWin =
+      outcome === "YES" ? deferenceAdjustedProb : 1 - deferenceAdjustedProb;
+    const qWin = 1 - pWin;
+    const winShares = outcome === "YES" ? yesShares : noShares;
+    const lossShares = outcome === "YES" ? noShares : yesShares;
+    const marketWinProb = outcome === "YES" ? marketProb : 1 - marketProb;
+    const englishOdds = convertOdds({
+      from: "impliedProbability",
+      to: "englishOdds",
+      value: marketWinProb,
+    });
+
+    const fraction =
+      pWin * (1 + lossShares) - (qWin * (1 + winShares)) / englishOdds;
+
+    return fraction;
+  };
+
+  const outcome = estimatedProb > marketProb ? "YES" : "NO";
+  let fraction = calculateAssumingOutcome(outcome);
+  if (fraction < 0) {
+    // If the fraction is negative, then the outcome is wrong, so we should bet the other way
+    fraction = calculateAssumingOutcome(outcome === "YES" ? "NO" : "YES");
+  }
+
+  // clamp fraction between 0 and 1
+  const clampedFraction = Math.min(Math.max(fraction, 0), 1);
+  const amount = bankroll * clampedFraction;
+
   return {
-    amount: bankroll * fraction,
+    fraction: clampedFraction,
+    amount,
     outcome,
   };
 }
@@ -235,7 +295,7 @@ export function calculateFullKellyBet({
   deferenceFactor: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
-}): BetRecommendation {
+}): BetRecommendation & { marketDeferralProb: number } {
   const currentPosition = userModel.getPosition(marketModel.market.id);
   const yesShares =
     currentPosition?.outcome === "YES" ? currentPosition.payout : 0;
@@ -246,6 +306,10 @@ export function calculateFullKellyBet({
   const balanceAfterLoans = userModel.balanceAfterLoans;
   const illiquidEV = userModel.illiquidEV;
   const relativeIlliquidEV = illiquidEV / balanceAfterLoans;
+
+  // YES and NO shares relative to the balance after loans
+  const sYes = yesShares / balanceAfterLoans;
+  const sNo = noShares / balanceAfterLoans;
 
   logger.debug("Available:", {
     balance,
@@ -258,21 +322,54 @@ export function calculateFullKellyBet({
 
   logger.debug("Illiquid PMF:", illiquidPmf.size);
 
-  const startingMarketProb = marketModel.market.probability;
+  const currentMarketProb = marketModel.market.probability;
 
-  const { amount: naiveKellyAmount, outcome } = calculateNaiveKellyBet({
-    marketProb: startingMarketProb,
+  // TODO this could be a standalone function
+  const getMarketDeferralProb = () => {
+    // Work out what bet we would need to make to remove our current position
+    // then get the market probability at that point
+
+    if (!currentPosition) {
+      return marketModel.market.probability;
+    }
+
+    const currentShares = currentPosition.payout;
+    const oppositeOutcome = currentPosition.outcome === "YES" ? "NO" : "YES";
+
+    const getNetSharesForAmount = (amount: number) => {
+      const { newShares } = marketModel.getBetInfo(oppositeOutcome, amount);
+      return newShares - currentShares;
+    };
+
+    const neutralBetAmount = findRoot(
+      getNetSharesForAmount,
+      0,
+      balanceAfterLoans,
+      "binary"
+    );
+
+    const { newShares, probAfter } = marketModel.getBetInfo(
+      oppositeOutcome,
+      neutralBetAmount
+    );
+    console.log({ neutralBetAmount, newShares, probAfter });
+    return probAfter ?? currentMarketProb;
+  };
+
+  const marketDeferralProb = getMarketDeferralProb();
+
+  const { amount: naiveKellyAmount } = calculateNaiveKellyBetWithPosition({
+    marketProb: currentMarketProb,
     estimatedProb,
     deferenceFactor,
     bankroll: balanceAfterLoans,
+    position: { yesShares, noShares },
   });
 
   const pYes =
     estimatedProb * deferenceFactor +
-    (1 - deferenceFactor) * startingMarketProb;
+    (1 - deferenceFactor) * marketDeferralProb;
   const qYes = 1 - pYes;
-  const pWin = outcome === "YES" ? pYes : qYes;
-  const qWin = 1 - pWin;
 
   const englishOdds = (absBetEstimate: number, betOutcome: Outcome) => {
     const { newShares } = marketModel.getBetInfo(betOutcome, absBetEstimate);
@@ -313,22 +410,22 @@ export function calculateFullKellyBet({
 
     const I = effectiveRelativeIlliquidEV;
 
-    // EV = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
-    const A = dfYesdf * ((pYes * bYes) / (1 + I + fYes * bYes - fNo));
-    const B = dfNodf * (-pYes / (1 + I + fYes * bYes - fNo));
+    // EV = p ln(1 + I + sYes + fYes * bYes - fNo) + q ln(1 + I + sNo + fNo * bNo - fYes)
+    const A = dfYesdf * ((pYes * bYes) / (1 + I + sYes + fYes * bYes - fNo));
+    const B = dfNodf * (-pYes / (1 + I + sYes + fYes * bYes - fNo));
 
-    const C = dfNodf * ((qYes * bNo) / (1 + I + fNo * bNo - fYes));
+    const C = dfNodf * ((qYes * bNo) / (1 + I + sNo + fNo * bNo - fYes));
     // D is taken
-    const E = dfYesdf * (-qYes / (1 + I + fNo * bNo - fYes));
+    const E = dfYesdf * (-qYes / (1 + I + sNo + fNo * bNo - fYes));
 
     const F =
       dfYesdf *
       ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
-        (1 + I + fYes * bYes - fNo));
+        (1 + I + sYes + fYes * bYes - fNo));
     const G =
       dfNodf *
       ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
-        (1 + I + fNo * bNo - fYes));
+        (1 + I + sNo + fNo * bNo - fYes));
 
     const result = A + B + C + E + F + G;
     return result;
@@ -386,53 +483,26 @@ export function calculateFullKellyBet({
       const I = payout / balanceAfterLoans;
 
       // EV = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
-      const A = dfYesdf * ((pYes * bYes) / (1 + I + fYes * bYes - fNo));
-      const B = dfNodf * (-pYes / (1 + I + fYes * bYes - fNo));
+      const A = dfYesdf * ((pYes * bYes) / (1 + I + sYes + fYes * bYes - fNo));
+      const B = dfNodf * (-pYes / (1 + I + sYes + fYes * bYes - fNo));
 
-      const C = dfNodf * ((qYes * bNo) / (1 + I + fNo * bNo - fYes));
+      const C = dfNodf * ((qYes * bNo) / (1 + I + sNo + fNo * bNo - fYes));
       // D is taken
-      const E = dfYesdf * (-qYes / (1 + I + fNo * bNo - fYes));
+      const E = dfYesdf * (-qYes / (1 + I + sNo + fNo * bNo - fYes));
 
       const F =
         dfYesdf *
         ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
-          (1 + I + fYes * bYes - fNo));
+          (1 + I + sYes + fYes * bYes - fNo));
       const G =
         dfNodf *
         ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
-          (1 + I + fNo * bNo - fYes));
+          (1 + I + sYes + fNo * bNo - fYes));
 
       const result = A + B + C + E + F + G;
       return result;
     };
-    // const englishOddsEstimate = englishOdds(betEstimate, outcome);
-    // const englishOddsDerivative = D(
-    //   (x: number) => englishOdds(x, outcome),
-    //   betEstimate,
-    //   0.1
-    // );
 
-    // const f = betEstimate / balanceAfterLoans;
-
-    // const integrand = (payout: number) => {
-    //   const I = payout / balanceAfterLoans;
-
-    //   // There is a singularity at 1 + I - f = 0 (i.e. when the user bets their whole balance)
-    //   // treat cases where the user is betting _more_ than their balance as if they are betting
-    //   // extremely close to their balance (essentially apply a large negative penalty).
-    //   // The "/ Math.abs(1 + I - f)" is to hopefully provide directional information to the root
-    //   // solver to improve numerical stability
-    //   const bDenom = 1 + I - f > 0 ?  : 1e-12 / Math.abs(1 + I - f);
-
-    //   const A =
-    //     (pWin * englishOddsEstimate) / (1 + I + f * englishOddsEstimate);
-    //   const B = -qWin / 1 + I - f;
-    //   const C =
-    //     (pWin * f * englishOddsDerivative * balanceAfterLoans) /
-    //     (1 + I + f * englishOddsEstimate);
-
-    //   return A + B + C;
-    // };
     const integral = integrateOverPmf(integrand, illiquidPmf);
 
     return integral;
@@ -465,25 +535,43 @@ export function calculateFullKellyBet({
 
   const bounds = [optimalBetBalanceOnly, optimalBetCashedOut].sort();
   const optimalBet = findRoot(dEVdBet, bounds[0], bounds[1], "binary");
+
+  const optimalBetAmount = Math.abs(optimalBet);
   const optimalOutcome = optimalBet > 0 ? "YES" : "NO";
+
+  // get the shares and pAfter
+  const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
+    optimalOutcome,
+    optimalBetAmount
+  );
+
+  // Calculate positionAfter
+  // 1 NO share cancels out with 1 YES share to produce M1
+  const naiveYesShares = yesShares + (optimalOutcome === "YES" ? shares : 0);
+  const naiveNoShares = noShares + (optimalOutcome === "NO" ? shares : 0);
+  const netYesShares = Math.max(naiveYesShares - naiveNoShares, 0);
+  const netNoShares = Math.max(naiveNoShares - naiveYesShares, 0);
+  const netCash = Math.min(naiveNoShares, naiveYesShares);
+  const positionAfter = {
+    yesShares: netYesShares,
+    noShares: netNoShares,
+    cash: netCash,
+  };
 
   logger.debug({
     optimalBetBalanceOnly,
     optimalBet,
     optimalBetCashedOut,
+    positionAfter,
   });
 
-  // get the shares and pAfter
-  const { newShares: shares, probAfter: pAfter } = marketModel.getBetInfo(
-    outcome,
-    optimalBet
-  );
-
   return {
-    amount: Math.abs(optimalBet),
+    amount: optimalBetAmount,
     outcome: optimalOutcome,
-    shares,
+    newShares: shares,
     pAfter: pAfter ?? 0,
+    positionAfter,
+    marketDeferralProb,
   };
 }
 
@@ -498,7 +586,14 @@ function getBetRecommendationInner({
   marketModel: CpmmMarketModel;
   userModel: UserModel;
 }): BetRecommendationFull {
-  const { amount, outcome, shares, pAfter } = calculateFullKellyBet({
+  const {
+    amount,
+    outcome,
+    newShares,
+    pAfter,
+    positionAfter,
+    marketDeferralProb,
+  } = calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
     marketModel,
@@ -509,30 +604,32 @@ function getBetRecommendationInner({
     return {
       amount,
       outcome,
-      shares,
+      newShares,
       pAfter,
-      dailyRoi: 0,
-      dailyTotalRoi: 0,
+      positionAfter,
+      annualRoi: 0,
+      annualTotalRoi: 0,
     };
   }
 
   const timeToCloseYears =
     (marketModel.market.closeTime - Date.now()) / (1000 * 60 * 60 * 24 * 365);
 
-  const adjustedProb =
-    estimatedProb * deferenceFactor +
-    (1 - deferenceFactor) * marketModel.market.probability;
-
-  const pWin = outcome === "YES" ? adjustedProb : 1 - adjustedProb;
-  const EV = pWin * shares;
+  // FIXME this part is all messed up now:
+  // - annualRoi be CHANGE in EV of the bet, divided by the amount spent
+  // - annualTotalRoi should be the CHANGE in EV of the entire portfolio as a result of this bet, divided by the amount spent
+  const { yesShares, noShares, cash } = positionAfter;
+  const myPYes = estimatedProb;
+  const myEV = myPYes * yesShares + (1 - myPYes) * noShares + cash;
+  const marketEV =
+    marketDeferralProb * yesShares + (1 - marketDeferralProb) * noShares + cash;
 
   // dailyRoi is the answer to the question "Suppose you and 100 of your friends made this bet on independent but otherwise
   // identical markets, and then pooled all your winnings at the end. What would your average daily return be?". In other
   // words, if you are spreading your bets thinly across many markets, then your net daily return will be approximately
   // the average of the dailyRoi of each bet.
 
-  // amount * dailyRoi ^ timeToCloseDays = EV <=> dailyRoi = Math.exp(Math.log(EV / amount) / timeToCloseDays)
-  const annualRoi = Math.exp(Math.log(EV / amount) / timeToCloseYears);
+  const annualRoi = Math.exp(Math.log(myEV / amount) / timeToCloseYears);
 
   // dailyTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average daily return
   // relative to your entire bankroll?". In other words, if you are putting all your eggs in one basket, then this will be
@@ -541,25 +638,29 @@ function getBetRecommendationInner({
   // Relatedly, if you find a market with a dailyTotalRoi greater than the dailyRoi of other markets, then you should almost
   // certainly pull money out of the other markets and put it into the first. Because even if you _only_ bet in that market
   // from now on, you will still make more money than you would have if you had kept your money more spread around.
-  const totalYesEV = userModel.portfolioEV + shares - amount;
-  const totalNoEV = userModel.portfolioEV - amount;
+  // const totalYesEV =
+  //   userModel.portfolioEV - marketEV + yesShares + cash - amount;
+  // const totalNoEV =
 
-  const logEV = pWin * Math.log(totalYesEV) + (1 - pWin) * Math.log(totalNoEV);
-  // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
-  // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
-  const annualTotalRoi = Math.exp(
-    (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
-  );
+  // const logEV =
+  //   pWin * Math.log(totalWinEV) + (1 - pWin) * Math.log(totalLossEV);
+  // // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
+  // // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
+  // const annualTotalRoi = Math.exp(
+  //   (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
+  // );
+  const annualTotalRoi = 0;
 
   logger.debug({ timeToCloseYears, annualRoi, annualTotalRoi });
 
   return {
     amount,
     outcome,
-    shares,
+    newShares: newShares,
     pAfter,
-    dailyRoi: annualRoi,
-    dailyTotalRoi: annualTotalRoi,
+    positionAfter,
+    annualRoi,
+    annualTotalRoi,
   };
 }
 
@@ -577,11 +678,12 @@ export function getBetRecommendation({
   const errorFallback = {
     amount: 0,
     outcome: "YES",
-    shares: 0,
+    newShares: 0,
     pAfter: 0,
-    dailyRoi: 0,
-    dailyTotalRoi: 0,
-    // TODO add explicited error code
+    annualRoi: 0,
+    annualTotalRoi: 0,
+    positionAfter: { yesShares: 0, noShares: 0, cash: 0 },
+    // TODO add explicit error codes
   } as const;
 
   logger.debug("getBetRecommendation", {

@@ -383,7 +383,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           label="Annual return from a portfolio of similar bets"
           value={
             betRecommendation
-              ? `${((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%`
+              ? `${((betRecommendation.annualRoi - 1) * 100).toPrecision(3)}%`
               : "—"
           }
           classes={classes}
@@ -392,7 +392,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           label="Annual return if this were your only bet"
           value={
             betRecommendation
-              ? `${((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(
+              ? `${((betRecommendation.annualTotalRoi - 1) * 100).toPrecision(
                   3
                 )}%`
               : "—"
