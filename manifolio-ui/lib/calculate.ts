@@ -615,41 +615,48 @@ function getBetRecommendationInner({
   const timeToCloseYears =
     (marketModel.market.closeTime - Date.now()) / (1000 * 60 * 60 * 24 * 365);
 
-  // FIXME this part is all messed up now:
-  // - annualRoi be CHANGE in EV of the bet, divided by the amount spent
-  // - annualTotalRoi should be the CHANGE in EV of the entire portfolio as a result of this bet, divided by the amount spent
+  const myPYes =
+    estimatedProb * deferenceFactor +
+    (1 - deferenceFactor) * marketDeferralProb;
+
+  const currentPosition = userModel.getPosition(marketModel.market.id);
+  let positionEVBefore = 0;
+
+  if (currentPosition) {
+    const currentPWin = currentPosition.outcome === "YES" ? myPYes : 1 - myPYes;
+    positionEVBefore = currentPosition.payout * currentPWin;
+  }
+
   const { yesShares, noShares, cash } = positionAfter;
-  const myPYes = estimatedProb;
-  const myEV = myPYes * yesShares + (1 - myPYes) * noShares + cash;
-  const marketEV =
-    marketDeferralProb * yesShares + (1 - marketDeferralProb) * noShares + cash;
+  const positionEVAfter = myPYes * yesShares + (1 - myPYes) * noShares + cash;
+  const deltaEV = positionEVAfter - positionEVBefore;
 
-  // dailyRoi is the answer to the question "Suppose you and 100 of your friends made this bet on independent but otherwise
-  // identical markets, and then pooled all your winnings at the end. What would your average daily return be?". In other
+  // annualRoi is the answer to the question "Suppose you and 100 of your friends made this bet on independent but otherwise
+  // identical markets, and then pooled all your winnings at the end. What would your average return be?". In other
   // words, if you are spreading your bets thinly across many markets, then your net daily return will be approximately
-  // the average of the dailyRoi of each bet.
+  // the average of the dailyRoi of each bet. Also note that this is always a calculation for THIS bet, even if you have an
+  // existing position.
 
-  const annualRoi = Math.exp(Math.log(myEV / amount) / timeToCloseYears);
+  const annualRoi = Math.exp(Math.log(deltaEV / amount) / timeToCloseYears);
 
-  // dailyTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average daily return
+  // annualTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average daily return
   // relative to your entire bankroll?". In other words, if you are putting all your eggs in one basket, then this will be
-  // your net daily return. Note that for a single market dailyTotalRoi is strictly less than dailyRoi.
+  // your net daily return. Note that for a single market annualTotalRoi is strictly less than annualRoi.
   //
-  // Relatedly, if you find a market with a dailyTotalRoi greater than the dailyRoi of other markets, then you should almost
+  // Relatedly, if you find a market with an annualTotalRoi greater than the annualRoi of other markets, then you should almost
   // certainly pull money out of the other markets and put it into the first. Because even if you _only_ bet in that market
   // from now on, you will still make more money than you would have if you had kept your money more spread around.
-  // const totalYesEV =
-  //   userModel.portfolioEV - marketEV + yesShares + cash - amount;
-  // const totalNoEV =
+  const evLessPositionBefore = userModel.portfolioEV - positionEVBefore;
+  const totalYesEV = evLessPositionBefore + yesShares + cash - amount;
+  const totalNoEV = evLessPositionBefore + noShares + cash - amount;
 
-  // const logEV =
-  //   pWin * Math.log(totalWinEV) + (1 - pWin) * Math.log(totalLossEV);
-  // // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
-  // // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
-  // const annualTotalRoi = Math.exp(
-  //   (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
-  // );
-  const annualTotalRoi = 0;
+  const logEV =
+    myPYes * Math.log(totalYesEV) + (1 - myPYes) * Math.log(totalNoEV);
+  // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
+  // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
+  const annualTotalRoi = Math.exp(
+    (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
+  );
 
   logger.debug({ timeToCloseYears, annualRoi, annualTotalRoi });
 
@@ -659,8 +666,8 @@ function getBetRecommendationInner({
     newShares: newShares,
     pAfter,
     positionAfter,
-    annualRoi,
-    annualTotalRoi,
+    annualRoi: amount < 1 ? 1 : annualRoi,
+    annualTotalRoi: amount < 1 ? 1 : annualTotalRoi,
   };
 }
 
