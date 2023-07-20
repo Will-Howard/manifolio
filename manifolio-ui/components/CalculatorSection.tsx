@@ -319,7 +319,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     setTimeout(() => {
       setRefetchCounter((prev) => prev + 1);
       setJustBet(false);
-    }, 1000);
+    }, 1500);
   }, [
     apiKeyInput,
     betAmount,
