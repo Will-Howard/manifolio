@@ -328,6 +328,16 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     setRefetchCounter,
   ]);
 
+  const formatRoi = (roi: number) => {
+    const roiPercent = (roi - 1) * 100;
+    if (Math.abs(roiPercent) < 0.01) return "0%"; // Avoid -0.0%
+
+    // 1 decimal place if it's less than 10%, 2 if it's less than 1%, 0 otherwise
+    const decimalPlaces = roiPercent < 1 ? 2 : roiPercent < 10 ? 1 : 0;
+    // Also format with commas
+    return `${parseFloat(roiPercent.toFixed(decimalPlaces)).toLocaleString()}%`;
+  };
+
   return (
     <>
       <div className={classes.inputSection}>
@@ -387,9 +397,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         <Detail
           label="Annual return from a portfolio of similar bets"
           value={
-            betRecommendation
-              ? `${((betRecommendation.annualRoi - 1) * 100).toPrecision(3)}%`
-              : "—"
+            betRecommendation ? formatRoi(betRecommendation.annualRoi) : "—"
           }
           classes={classes}
         />
@@ -397,9 +405,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           label="Annual return if this were your only bet"
           value={
             betRecommendation
-              ? `${((betRecommendation.annualTotalRoi - 1) * 100).toPrecision(
-                  3
-                )}%`
+              ? formatRoi(betRecommendation.annualTotalRoi)
               : "—"
           }
           classes={classes}
