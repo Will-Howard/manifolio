@@ -27,23 +27,23 @@ export type ManifoldPosition = PositionModel & {
  * Calculate the convolution of two probability mass functions. This is equivalent to
  * finding the pmf of the sum of two random variables (sampled from each distribution).
  */
-function convolveDistributions(pmf1: PMF, pmf2: PMF): PMF {
-  const result = new Map<number, number>();
+// function convolveDistributions(pmf1: PMF, pmf2: PMF): PMF {
+//   const result = new Map<number, number>();
 
-  for (const [payout1, prob1] of Array.from(pmf1.entries())) {
-    for (const [payout2, prob2] of Array.from(pmf2.entries())) {
-      const combinedPayout = payout1 + payout2;
-      const combinedProb = prob1 * prob2;
+//   for (const [payout1, prob1] of Array.from(pmf1.entries())) {
+//     for (const [payout2, prob2] of Array.from(pmf2.entries())) {
+//       const combinedPayout = payout1 + payout2;
+//       const combinedProb = prob1 * prob2;
 
-      result.set(
-        combinedPayout,
-        (result.get(combinedPayout) || 0) + combinedProb
-      );
-    }
-  }
+//       result.set(
+//         combinedPayout,
+//         (result.get(combinedPayout) || 0) + combinedProb
+//       );
+//     }
+//   }
 
-  return result;
-}
+//   return result;
+// }
 
 function cartesianProduct<T>(...allEntries: T[][]): T[][] {
   return allEntries.reduce<T[][]>(
@@ -131,28 +131,6 @@ function computePayoutPMFMonteCarlo(
   }
 
   return outcomePMF;
-}
-
-/**
- * @deprecated Compute the probability mass function of the combined payouts of a set of bets using convolutions.
- * This is not used currently, but I think there is more room for performance optimisation using an approach like this
- * in future.
- */
-function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
-  let combinedDistribution = new Map<number, number>([[0, 1]]);
-
-  for (const bet of bets) {
-    const betDistribution = new Map<number, number>([
-      [0, 1 - bet.probability],
-      [bet.payout, bet.probability],
-    ]);
-    combinedDistribution = convolveDistributions(
-      combinedDistribution,
-      betDistribution
-    );
-  }
-
-  return combinedDistribution;
 }
 
 /**

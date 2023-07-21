@@ -87,8 +87,7 @@ export default function Home() {
           name="description"
           content="Bet sizing tool for Manifold Markets"
         />
-        {/* TODO does this actually work (because it's a relative link)? */}
-        <meta name="twitter:image" content="/book.svg" />
+        <meta name="twitter:image" content="https://manifol.io/book.svg" />
         <link rel="icon" href="/book.svg" />
       </Head>
       <ErrorProvider>
