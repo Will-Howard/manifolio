@@ -1,8 +1,7 @@
 import logger from "@/logger";
 import { CpmmMarketModel } from "./market";
-import { computePayoutDistribution, integrateOverPmf } from "./probability";
+import { integrateOverPmf } from "./probability";
 import { UserModel } from "./user";
-import { binarySearch } from "./vendor/manifold-helpers";
 
 type NaiveKellyProps = {
   marketProb: number;

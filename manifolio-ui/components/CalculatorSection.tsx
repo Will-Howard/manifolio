@@ -149,9 +149,9 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const classes = useStyles();
   const { errors } = useErrors();
 
-  const hasWarnings = errors.some(
-    (error: ManifolioError) => error.severity === "warning"
-  );
+  // const hasWarnings = errors.some(
+  //   (error: ManifolioError) => error.severity === "warning"
+  // );
   const hasErrors = errors.some(
     (error: ManifolioError) => error.severity === "error"
   );
