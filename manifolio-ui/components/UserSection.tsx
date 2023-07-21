@@ -6,6 +6,7 @@ import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
+import { useErrors } from "./hooks/useErrors";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -24,6 +25,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   avatar: {
     borderRadius: "50%",
     margin: "8px 24px 8px 4px",
+    objectFit: "cover",
   },
   detailsTitle: {
     fontWeight: 600,
@@ -56,6 +58,7 @@ interface DetailProps {
   label: string;
   value: number | undefined;
   isInverse?: boolean;
+  loading?: boolean;
   classes: Classes;
 }
 
@@ -63,6 +66,7 @@ const Detail: React.FC<DetailProps> = ({
   label,
   value,
   isInverse,
+  loading,
   classes,
 }) => {
   // flip the sign if isInverse is true
@@ -70,7 +74,11 @@ const Detail: React.FC<DetailProps> = ({
   const isNegative = value !== undefined && value < 0 !== isInverse;
 
   const formattedValue =
-    value !== undefined ? parseInt(value.toFixed(0)).toLocaleString() : "—";
+    value !== undefined
+      ? parseInt(value.toFixed(0)).toLocaleString()
+      : loading
+      ? "..."
+      : "—";
 
   return (
     <div className={classes.detailsRow}>
@@ -92,6 +100,7 @@ interface UserSectionProps {
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
+  refetchCounter: number;
 }
 
 const UserSection: React.FC<UserSectionProps> = ({
@@ -99,8 +108,10 @@ const UserSection: React.FC<UserSectionProps> = ({
   setUsernameInput,
   userModel,
   setUserModel,
+  refetchCounter,
 }: UserSectionProps) => {
   const classes = useStyles();
+  const { pushError } = useErrors();
 
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -117,13 +128,22 @@ const UserSection: React.FC<UserSectionProps> = ({
 
       if (!user) return;
       setUser(user);
+      setUserModel(undefined);
 
       // slow
       const userModel = await buildUserModel(user);
+      // TODO return errors from buildUserModel
+      // pushError({
+      //   key: "userModel",
+      //   code: "UNKNOWN_ERROR",
+      //   message:
+      //     "An unknown error occurred. Which was then suceeded by yet more errors causing this message to stretch onto several lines",
+      //   severity: "error",
+      // });
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
-  }, [setUserModel, usernameInput]);
+  }, [setUserModel, usernameInput, refetchCounter]);
 
   const userInputStatus = foundUser
     ? "success"
@@ -133,6 +153,13 @@ const UserSection: React.FC<UserSectionProps> = ({
 
   const { name = "—", avatarUrl = "https://manifold.markets/logo.svg" } =
     user || {};
+
+  const displayBalance = userModel?.balance ?? user?.balance;
+  const displayPortfolioEV =
+    userModel?.portfolioEV ??
+    // profit = portfolioEV - totalDeposits => portfolioEV = profit + totalDeposits
+    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
+  const displayLoans = userModel?.loans;
 
   return (
     <>
@@ -160,19 +187,22 @@ const UserSection: React.FC<UserSectionProps> = ({
           <div className={classes.detailsTitle}>{name}</div>
           <Detail
             label="Balance"
-            value={userModel?.balance}
+            value={displayBalance}
             classes={classes}
+            loading={false}
           />
           <Detail
             label="Total loans"
-            value={userModel?.loans}
+            value={displayLoans}
             isInverse
             classes={classes}
+            loading={!!user && !userModel}
           />
           <Detail
             label="Portfolio value"
-            value={userModel?.portfolioEV}
+            value={displayPortfolioEV}
             classes={classes}
+            loading={false}
           />
         </div>
       </div>

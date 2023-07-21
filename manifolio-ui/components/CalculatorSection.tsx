@@ -16,6 +16,8 @@ import { Classes } from "jss";
 import { Theme, theme } from "@/styles/theme";
 import classNames from "classnames";
 import { formatInt } from "@/lib/utils";
+import { ManifolioError, useErrors } from "./hooks/useErrors";
+import ErrorMessage from "./ErrorMessage";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -131,6 +133,8 @@ interface CalculatorSectionProps {
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel: UserModel | undefined;
   marketModel: CpmmMarketModel | undefined;
+  refetchCounter: number;
+  setRefetchCounter: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const CalculatorSection: React.FC<CalculatorSectionProps> = ({
@@ -139,16 +143,26 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   setUsernameInput,
   userModel,
   marketModel,
+  refetchCounter,
+  setRefetchCounter,
 }) => {
   const classes = useStyles();
+  const { errors } = useErrors();
+
+  // const hasWarnings = errors.some(
+  //   (error: ManifolioError) => error.severity === "warning"
+  // );
+  const hasErrors = errors.some(
+    (error: ManifolioError) => error.severity === "error"
+  );
 
   const [probabilityInput, setProbabilityInput] = useLocalStorageState(
     "probabilityInput",
     50
   );
-  const [deferenceFactor, setDeferenceFactor] = useLocalStorageState<number>(
-    "deferenceFactor",
-    0.5
+  const [kellyFraction, setKellyFraction] = useLocalStorageState<number>(
+    "kellyFraction",
+    50
   );
 
   const [betRecommendation, setBetRecommendation] = useState<
@@ -169,6 +183,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const [authedUsername, setAuthedUsername] = useState<string | undefined>(
     undefined
   );
+  const [recentlyBet, setRecentlyBet] = useState<boolean>(false);
 
   const estimatedProb = probabilityInput / 100;
 
@@ -203,10 +218,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      1 - deferenceFactor
+      kellyFraction / 100
     );
   }, [
-    deferenceFactor,
+    kellyFraction,
     marketModel,
     probabilityInput,
     userModel,
@@ -237,6 +252,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
       if (!authedUsername) {
         setAuthedUsername(undefined);
+        return;
       }
 
       logger.info("Fetched authenticated user:", authedUsername);
@@ -244,9 +260,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       setUsernameInput(authedUsername);
     };
     void tryFetchUser(apiKeyInput);
-    // FIXME setUsernameInput causes rerender if added as a dependency
+
+    // FIXME setUsernameInput causes rerender if added as a dependency. This is likely a bug in useLocalStorageState
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKeyInput, authedUsernameFound]);
+  }, [apiKeyInput, authedUsernameFound, refetchCounter]);
 
   const apiKeyInputStatus = authedUsernameFound
     ? "success"
@@ -267,7 +284,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     editableOutcome ??
     (betRecommendation?.outcome ? betRecommendation?.outcome : "YES");
 
-  // TODO calculate bet outcomes for non-recommendation amount
   const { newShares: betShares, probAfter: betProbAfter } = useMemo(
     () =>
       marketModel?.getBetInfo(betOutcome, betAmount) ?? {
@@ -282,6 +298,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const placeBet = useCallback(async () => {
     if (!betAmount || !marketModel?.market.id || !betOutcome) return;
+    setRecentlyBet(true);
 
     const body = {
       amount: Math.round(betAmount),
@@ -289,7 +306,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       outcome: betOutcome,
       apiKey: apiKeyInput,
     };
-    logger.debug("placeBet body:", body);
 
     const res = await fetch("/api/bet", {
       method: "POST",
@@ -299,7 +315,28 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       body: JSON.stringify(body),
     });
     logger.info("Created bet:", res);
-  }, [apiKeyInput, betAmount, betOutcome, marketModel?.market.id]);
+
+    setTimeout(() => {
+      setRefetchCounter((prev) => prev + 1);
+      setRecentlyBet(false);
+    }, 1500);
+  }, [
+    apiKeyInput,
+    betAmount,
+    betOutcome,
+    marketModel?.market.id,
+    setRefetchCounter,
+  ]);
+
+  const formatRoi = (roi: number) => {
+    const roiPercent = (roi - 1) * 100;
+    if (Math.abs(roiPercent) < 0.01) return "0%"; // Avoid -0.0%
+
+    // 1 decimal place if it's less than 10%, 2 if it's less than 1%, 0 otherwise
+    const decimalPlaces = roiPercent < 1 ? 2 : roiPercent < 10 ? 1 : 0;
+    // Also format with commas
+    return `${parseFloat(roiPercent.toFixed(decimalPlaces)).toLocaleString()}%`;
+  };
 
   return (
     <>
@@ -316,14 +353,14 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           className={classes.inputField}
         />
         <InputField
-          label="Safety factor"
+          label="Kelly fraction (%)"
           id="kellyFractionInput"
           type="number"
-          step="0.01"
+          step="1"
           min="0"
-          max="1"
-          value={deferenceFactor}
-          onChange={(e) => setDeferenceFactor(parseFloat(e.target.value))}
+          max="100"
+          value={kellyFraction}
+          onChange={(e) => setKellyFraction(parseFloat(e.target.value))}
           className={classes.inputField}
         />
       </div>
@@ -360,9 +397,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         <Detail
           label="Annual return from a portfolio of similar bets"
           value={
-            betRecommendation
-              ? `${((betRecommendation.dailyRoi - 1) * 100).toPrecision(3)}%`
-              : "—"
+            betRecommendation ? formatRoi(betRecommendation.annualRoi) : "—"
           }
           classes={classes}
         />
@@ -370,9 +405,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           label="Annual return if this were your only bet"
           value={
             betRecommendation
-              ? `${((betRecommendation.dailyTotalRoi - 1) * 100).toPrecision(
-                  3
-                )}%`
+              ? formatRoi(betRecommendation.annualTotalRoi)
               : "—"
           }
           classes={classes}
@@ -441,7 +474,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           />
           <Detail
             label="New probability"
-            // TODO handle negative case, plus pull out this logic
             value={`${(betProbAfter * 100).toFixed(1)}% (${
               betProbChange >= 0 ? "+" : "-"
             }${(Math.abs(betProbChange) * 100).toFixed(1)}%)`}
@@ -461,14 +493,20 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           />
           <Button
             variant={"contained"}
-            disabled={!authedUsername}
+            disabled={!authedUsername || hasErrors || recentlyBet}
             className={classes.placeBetButton}
             onClick={placeBet}
           >
             Place bet
           </Button>
-          {/* TODO warnings and errors here */}
         </div>
+        {errors.length > 0 && (
+          <div>
+            {errors.map((error: ManifolioError, idx: number) => (
+              <ErrorMessage key={`error_${idx}`} error={error} />
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
