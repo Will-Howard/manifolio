@@ -36,13 +36,25 @@ This calculator accounts for those two things.
 
 ![Manifolio Screenshot](images/screenshot.png)
 
-TODO
+What all the fields mean:
+ - User: 
+   - Balance:
+   - Total loans:
+   - Portfolio value
+ - Market:
+   - Market probability:
+   - Your position:
+   - Est. time to resolution: This is just the time to 
 
-### Things to watch out for
+
+### Things to watch out for/known issues
 
  - Currently it only handles YES/NO markets, and multiple choice markets are just ignored in the calculation of portfolio value. This will tend to make the bet recommendation too low in the case where you have a lot of value tied up in multiple choice markets.
- - If you have outstanding loans greater than your total balance, it will tell you not to bet anything. This is technically correct under strict Kelly betting, because if this is the case it means you have some chance of ending up with a negative balance in the long run (you have to pay back your loans when a market resolves, so if all your markets resolve against you you have a negative portfolio value). Because we are maximising the logarithm of wealth, and the logarithm of 0 approaches negative infinity, you get an infinite penalty if there is any chance of ending up below 0. The way the manifold loan system works (by my recollection, and at time of writing) is you get 2% of your initial investment back per day. So if you invest in long term markets, which is seen as a virtuous thing to do, you can easily end with loans way higher than your balance. To bring them back down you can sell off longer term markets that you have a lot of mana in.
- - The ROI 
+ - Selling positions is handled by buying the opposite side. So if you have 50 YES shares in a market and you are now predicting a much lower probability, it will tell you to buy NO. This is exactly equivalent to selling YES shares, and you do in fact get mana back when you do this, 1 NO + 1 YES share cancel out to produce M1. I appreciate this is a little confusing, I did it like this to make the maths simpler, I may change it in future.
+ - If you have outstanding loans greater than your total balance, it will tell you not to bet anything. This is technically correct under strict Kelly betting, because if this is the case it means you have some chance of ending up with a negative balance in the long run (you have to pay back your loans when a market resolves, so if all your markets resolve against you, you will have a negative portfolio value). Because we are maximising the logarithm of wealth, and the logarithm of 0 approaches negative infinity, you get an infinite penalty if there is any chance of ending up below 0. The way the manifold loan system works (by my recollection, and at time of writing) is you get 2% of your initial investment back per day. So if you invest in long term markets, which is seen as a virtuous thing to do, you can easily end with loans way higher than your balance. To bring them back down you can sell off longer term markets that you have a lot of mana in, or buy more mana.
+ - The "Annual return" numbers are very important. The calculation comes up with the best bet it can _given a certain edge, and a certain time to resolution_. If the time to resolution is very long or your edge is very small you can still end up not doing that well. Other things to note about these numbers:
+   - The "Annual return from a portfolio of similar bets" number can sometimes be negative (if you have an existing position and are now changing it). This is another thing which is "technically correct", it can be better to sacrifice some expected value in return for some expected log value. There may also be cases where this is a bug, but if it's small it's probably valid
+   - The "Annual return if this were your only bet" number can also go negative. This one _is_ a bug, and as I understand it it's due to fact that this calculation treats part of the portfolio value as a fixed expected value. The calculation of the optimal bet does account
 
 ## Local setup
 
@@ -69,3 +81,11 @@ $ yarn -v
 ```
 
 ## Acknowledgements
+
+Thanks to the people who kindly funded this project on [Manifund](https://manifund.org/projects/a-tool-for-making-well-sized-kelly-optimal-bets-on-manifold?tab=shareholders):
+ - Patrick Purvis
+ - Domenic Denicola
+ - Tyler Heishman
+ - Guenael Strutt
+ - Austin Chen
+ - Carson Gale
