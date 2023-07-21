@@ -36,10 +36,13 @@ This calculator accounts for those two things.
 
 ![Manifolio Screenshot](images/screenshot.png)
 
+TODO
+
 ### Things to watch out for
 
- - 
- - Currently it only handles YES/NO markets, and multiple choice markets are just ignored in the calculation of portfolio value. This will tend to make the bet recommendation too low in the case where you have a lot of value tied up in multiple choice markets
+ - Currently it only handles YES/NO markets, and multiple choice markets are just ignored in the calculation of portfolio value. This will tend to make the bet recommendation too low in the case where you have a lot of value tied up in multiple choice markets.
+ - If you have outstanding loans greater than your total balance, it will tell you not to bet anything. This is technically correct under strict Kelly betting, because if this is the case it means you have some chance of ending up with a negative balance in the long run (you have to pay back your loans when a market resolves, so if all your markets resolve against you you have a negative portfolio value). Because we are maximising the logarithm of wealth, and the logarithm of 0 approaches negative infinity, you get an infinite penalty if there is any chance of ending up below 0. The way the manifold loan system works (by my recollection, and at time of writing) is you get 2% of your initial investment back per day. So if you invest in long term markets, which is seen as a virtuous thing to do, you can easily end with loans way higher than your balance. To bring them back down you can sell off longer term markets that you have a lot of mana in.
+ - The ROI 
 
 ## Local setup
 
