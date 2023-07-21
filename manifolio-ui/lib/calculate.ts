@@ -1,6 +1,6 @@
 import logger from "@/logger";
 import { CpmmMarketModel } from "./market";
-import { integrateOverPmf } from "./probability";
+import { ManifoldPosition, integrateOverPmf } from "./probability";
 import { UserModel } from "./user";
 
 type NaiveKellyProps = {
@@ -212,10 +212,11 @@ export function findRoot(
   lowerBound: number,
   upperBound: number,
   method: "newton" | "binary" = "newton",
-  iterations = 20,
+  iterations = 30,
   tolerance = 1e-6
 ): number {
   if (method === "binary") {
+    // Below algorithm requires an increasing function
     const comparator = f(upperBound) > f(lowerBound) ? f : (x: number) => -f(x);
     let mid = 0;
     let min = lowerBound;
@@ -224,17 +225,29 @@ export function findRoot(
     for (let i = 0; i < iterations; i++) {
       mid = min + (max - min) / 2;
 
-      // Break once we've reached max precision.
-      if (mid === min || mid === max) break;
+      // Break if we hit one of the bounds. Note that it will only get here
+      // if it has not reached the required tolerance so it is correct to say it has failed to find a solution
+      if (Math.min(Math.abs(mid - min), Math.abs(mid - max)) < tolerance) {
+        logger.debug(
+          "Failed to find root solution, hit a bound. This is expected when loans are high relative to balance"
+        );
+        return mid;
+      }
 
       const comparison = comparator(mid);
-      if (Math.abs(comparison) < tolerance) break;
-      else if (comparison > 0) {
+      if (Math.abs(comparison) < tolerance) {
+        logger.debug("Found root solution");
+        return mid;
+      } else if (comparison > 0) {
         max = mid;
       } else {
         min = mid;
       }
     }
+
+    logger.warn(
+      `Failed to find root solution, remaining error: ${comparator(mid)}`
+    );
     return mid;
   }
 
@@ -262,7 +275,7 @@ export function findRoot(
 
     if (Math.abs(xNext - x) < tolerance) {
       // If the difference between x and xNext is less than the tolerance, we found a solution.
-      // logger.debug("Found root solution");
+      logger.debug("Found root solution");
       return xNext;
     }
 
@@ -270,9 +283,51 @@ export function findRoot(
   }
 
   // If the solution is not found within the given number of iterations, return the last estimate.
-  logger.warn("Failed to find root solution");
+  logger.warn(`Failed to find root solution, remaining error: ${f(x)}`);
   return x;
 }
+
+/**
+ * Get the market probability to defer to, calculated as the probability after the user
+ * sells off their current position
+ */
+const getMarketDeferralProb = (
+  currentPosition: ManifoldPosition | undefined,
+  marketModel: CpmmMarketModel,
+  balanceAfterLoans: number
+) => {
+  const currentMarketProb = marketModel.market.probability;
+  if (!currentPosition) {
+    return currentMarketProb;
+  }
+
+  const currentShares = currentPosition.payout;
+  const oppositeOutcome = currentPosition.outcome === "YES" ? "NO" : "YES";
+
+  const getNetSharesForAmount = (amount: number) => {
+    const { newShares } = marketModel.getBetInfo(oppositeOutcome, amount);
+    return newShares - currentShares;
+  };
+
+  const neutralBetAmount = findRoot(
+    getNetSharesForAmount,
+    0,
+    balanceAfterLoans,
+    "binary"
+  );
+
+  const { newShares, probAfter } = marketModel.getBetInfo(
+    oppositeOutcome,
+    neutralBetAmount
+  );
+
+  logger.debug("Market deferral bet", {
+    neutralBetAmount,
+    newShares,
+    probAfter,
+  });
+  return probAfter ?? currentMarketProb;
+};
 
 /**
  * Calculate the Kelly optimal bet, accounting for:
@@ -319,43 +374,20 @@ export function calculateFullKellyBet({
 
   const illiquidPmf = userModel.getIlliquidPmf(currentPosition?.contractId);
 
-  logger.debug("Illiquid PMF:", illiquidPmf.size);
+  logger.debug("Illiquid PMF size:", illiquidPmf.size);
 
   const currentMarketProb = marketModel.market.probability;
 
-  // TODO this could be a standalone function
-  const getMarketDeferralProb = () => {
-    // Work out what bet we would need to make to remove our current position
-    // then get the market probability at that point
+  const marketDeferralProb = getMarketDeferralProb(
+    currentPosition,
+    marketModel,
+    balanceAfterLoans
+  );
 
-    if (!currentPosition) {
-      return marketModel.market.probability;
-    }
-
-    const currentShares = currentPosition.payout;
-    const oppositeOutcome = currentPosition.outcome === "YES" ? "NO" : "YES";
-
-    const getNetSharesForAmount = (amount: number) => {
-      const { newShares } = marketModel.getBetInfo(oppositeOutcome, amount);
-      return newShares - currentShares;
-    };
-
-    const neutralBetAmount = findRoot(
-      getNetSharesForAmount,
-      0,
-      balanceAfterLoans,
-      "binary"
-    );
-
-    const { newShares, probAfter } = marketModel.getBetInfo(
-      oppositeOutcome,
-      neutralBetAmount
-    );
-    console.log({ neutralBetAmount, newShares, probAfter });
-    return probAfter ?? currentMarketProb;
-  };
-
-  const marketDeferralProb = getMarketDeferralProb();
+  const pYes =
+    estimatedProb * deferenceFactor +
+    (1 - deferenceFactor) * marketDeferralProb;
+  const qYes = 1 - pYes;
 
   const { amount: naiveKellyAmount } = calculateNaiveKellyBetWithPosition({
     marketProb: currentMarketProb,
@@ -364,11 +396,6 @@ export function calculateFullKellyBet({
     bankroll: balanceAfterLoans,
     position: { yesShares, noShares },
   });
-
-  const pYes =
-    estimatedProb * deferenceFactor +
-    (1 - deferenceFactor) * marketDeferralProb;
-  const qYes = 1 - pYes;
 
   const englishOdds = (absBetEstimate: number, betOutcome: Outcome) => {
     const { newShares } = marketModel.getBetInfo(betOutcome, absBetEstimate);
@@ -692,12 +719,6 @@ export function getBetRecommendation({
     // TODO add explicit error codes
   } as const;
 
-  logger.debug("getBetRecommendation", {
-    estimatedProb,
-    deferenceFactor,
-    marketModel,
-    userModel,
-  });
   if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
     return errorFallback;
   }

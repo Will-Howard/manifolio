@@ -151,7 +151,6 @@ const MarketSection: React.FC<MarketSectionProps> = ({
   }, []);
 
   useEffect(() => {
-    console.log("marketInput", marketInput);
     if (!marketInput || marketInput.length === 0) return;
     const parsedSlug = getSlug(marketInput);
 

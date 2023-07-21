@@ -260,7 +260,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       setUsernameInput(authedUsername);
     };
     void tryFetchUser(apiKeyInput);
-    // FIXME setUsernameInput causes rerender if added as a dependency
+
+    // FIXME setUsernameInput causes rerender if added as a dependency. This is likely a bug in useLocalStorageState
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKeyInput, authedUsernameFound, refetchCounter]);
 
@@ -305,7 +306,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       outcome: betOutcome,
       apiKey: apiKeyInput,
     };
-    logger.debug("placeBet body:", body);
 
     const res = await fetch("/api/bet", {
       method: "POST",
@@ -474,7 +474,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           />
           <Detail
             label="New probability"
-            // TODO handle negative case, plus pull out this logic
             value={`${(betProbAfter * 100).toFixed(1)}% (${
               betProbChange >= 0 ? "+" : "-"
             }${(Math.abs(betProbChange) * 100).toFixed(1)}%)`}

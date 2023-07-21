@@ -200,15 +200,6 @@ test("Test for getBetRecommendation under basic Kelly betting scenario (high liq
         userModel,
       });
 
-    // console.log({
-    //   marketProb,
-    //   estimatedProb,
-    //   fullRecAmount,
-    //   fullRecOutcome,
-    //   naiveKellyAmount,
-    //   naiveKellyOutcome,
-    // });
-
     expect(naiveKellyOutcome).toBe(fullRecOutcome);
     expect(Math.abs(naiveKellyAmount - fullRecAmount)).toBeLessThan(
       (fullRecAmount + naiveKellyAmount) / 100
@@ -501,15 +492,6 @@ describe("Direct test for maximising log wealth under scenarios with other posit
         userModel: userModelSimple,
       });
 
-    // console.log({
-    //   marketProb,
-    //   estimatedProb,
-    //   amountFull,
-    //   outcomeFull,
-    //   amountSimple,
-    //   outcomeSimple,
-    // });
-
     expect(outcomeFull).toBe(outcomeSimple);
     expect(Math.abs(amountFull - amountSimple)).toBeGreaterThan(
       (amountFull + amountSimple) / 10
@@ -554,14 +536,6 @@ describe("Direct test for maximising log wealth under scenarios with other posit
 
     const expectedLogWealth = getExpectedLogWealth(amountFull);
     const variations = [-2, -1, 1, 2];
-
-    // console.log({
-    //   marketProb,
-    //   estimatedProb,
-    //   amountFull,
-    //   outcomeFull,
-    //   expectedLogWealth,
-    // });
 
     for (const variation of variations) {
       const newAmount = Math.min(
