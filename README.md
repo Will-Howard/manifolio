@@ -22,9 +22,9 @@ There is a simple formula which can be used in the case of simple bets taken one
 f = p - q / b
 ```
  - f - The fraction of your bankroll to bet
- - p - The true probability of a win
+ - p - The probability of a win
  - q - 1 - p
- - b - The odds of the market, in terms of "[english odds](https://www.investopedia.com/articles/investing/042115/betting-basics-fractional-decimal-american-moneyline-odds.asp)"
+ - b - The odds of the market, in terms of "[english odds](https://www.investopedia.com/articles/investing/042115/betting-basics-fractional-decimal-american-moneyline-odds.asp)" in this case
 
 This doesn't work that well on manifold or other prediction markets, because:
  - A lot of markets are quite thinly traded, so the odds move a lot in response to your bet
@@ -37,14 +37,16 @@ This calculator accounts for those two things.
 ![Manifolio Screenshot](images/screenshot.png)
 
 What all the fields mean:
- - User: 
-   - Balance:
-   - Total loans:
-   - Portfolio value
- - Market:
+ - User: Your username
+   - Balance: self explanatory
+   - Total loans: self explanatory
+   - Portfolio value:
+ - Market: The url of the market you want to bet on
    - Market probability:
-   - Your position:
-   - Est. time to resolution: This is just the time to 
+   - Your position: The 
+   - Est. time to resolution: This is currently just the time to market close. It's used in the calculation of the "annual return" fields below. In general markets with very long 
+ - Prob. estimate: Your estimate of the true probability of the question resolving YES
+ - Kelly fraction: . The exact meaning of this number is that the 
 
 
 ### Things to watch out for/known issues
