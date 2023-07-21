@@ -1,4 +1,5 @@
 import { calculateNaiveKellyBet, findRoot } from "@/lib/calculate";
+import { binarySearch } from "../vendor/manifold-helpers";
 
 test("Naive Kelly formula gives expected result", () => {
   const { amount, outcome } = calculateNaiveKellyBet({

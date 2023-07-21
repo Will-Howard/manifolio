@@ -1,5 +1,5 @@
 import seedrandom from "seedrandom";
-import { UnivariateFunction } from "./calculate";
+import { Outcome, UnivariateFunction } from "./calculate";
 
 /**
  * A probability mass function is a mapping from a payout to the probability of that payout.
@@ -18,27 +18,32 @@ export type PositionModel = {
   loan?: number;
 };
 
+export type ManifoldPosition = PositionModel & {
+  contractId: string;
+  outcome: Outcome;
+};
+
 /**
  * Calculate the convolution of two probability mass functions. This is equivalent to
  * finding the pmf of the sum of two random variables (sampled from each distribution).
  */
-function convolveDistributions(pmf1: PMF, pmf2: PMF): PMF {
-  const result = new Map<number, number>();
+// function convolveDistributions(pmf1: PMF, pmf2: PMF): PMF {
+//   const result = new Map<number, number>();
 
-  for (const [payout1, prob1] of Array.from(pmf1.entries())) {
-    for (const [payout2, prob2] of Array.from(pmf2.entries())) {
-      const combinedPayout = payout1 + payout2;
-      const combinedProb = prob1 * prob2;
+//   for (const [payout1, prob1] of Array.from(pmf1.entries())) {
+//     for (const [payout2, prob2] of Array.from(pmf2.entries())) {
+//       const combinedPayout = payout1 + payout2;
+//       const combinedProb = prob1 * prob2;
 
-      result.set(
-        combinedPayout,
-        (result.get(combinedPayout) || 0) + combinedProb
-      );
-    }
-  }
+//       result.set(
+//         combinedPayout,
+//         (result.get(combinedPayout) || 0) + combinedProb
+//       );
+//     }
+//   }
 
-  return result;
-}
+//   return result;
+// }
 
 function cartesianProduct<T>(...allEntries: T[][]): T[][] {
   return allEntries.reduce<T[][]>(
@@ -92,14 +97,16 @@ function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
 /**
  * Compute the probability mass function of the combined payouts of a set of bets using a Monte Carlo method.
  */
-function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
-  const numSamples = 5000;
+function computePayoutPMFMonteCarlo(
+  bets: PositionModel[],
+  samples: number
+): PMF {
   const seed = 1; // or any number of your choice
   const rng = seedrandom(seed.toString()); // seedrandom is a seeded random number generator library
 
   const sampleOutcomes: number[] = [];
 
-  for (let i = 0; i < numSamples; i++) {
+  for (let i = 0; i < samples; i++) {
     let samplePayout = 0;
     for (const bet of bets) {
       const randomOutcome = rng();
@@ -120,32 +127,10 @@ function computePayoutPMFMonteCarlo(bets: PositionModel[]): PMF {
   // Normalize counts to compute probabilities
   const outcomePMF: PMF = new Map();
   for (const [outcome, count] of outcomeCounts.entries()) {
-    outcomePMF.set(outcome, count / numSamples);
+    outcomePMF.set(outcome, count / samples);
   }
 
   return outcomePMF;
-}
-
-/**
- * @deprecated Compute the probability mass function of the combined payouts of a set of bets using convolutions.
- * This is not used currently, but I think there is more room for performance optimisation using an approach like this
- * in future.
- */
-function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
-  let combinedDistribution = new Map<number, number>([[0, 1]]);
-
-  for (const bet of bets) {
-    const betDistribution = new Map<number, number>([
-      [0, 1 - bet.probability],
-      [bet.payout, bet.probability],
-    ]);
-    combinedDistribution = convolveDistributions(
-      combinedDistribution,
-      betDistribution
-    );
-  }
-
-  return combinedDistribution;
 }
 
 /**
@@ -153,10 +138,11 @@ function computePayoutPMFConvolution(bets: PositionModel[]): PMF {
  */
 export function computePayoutDistribution(
   bets: PositionModel[],
-  method: "cartesian" | "monte-carlo" = "cartesian"
+  method: "cartesian" | "monte-carlo" = "cartesian",
+  samples = 5000
 ): Map<number, number> {
   if (method === "monte-carlo") {
-    return computePayoutPMFMonteCarlo(bets);
+    return computePayoutPMFMonteCarlo(bets, samples);
   } else {
     return computePayoutPMFCartesian(bets);
   }

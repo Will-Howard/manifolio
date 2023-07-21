@@ -6,7 +6,7 @@
 import logger from "@/logger";
 
 const BASE_URL = (() => {
-  return "https://manifold.markets";
+  return process.env.NEXT_PUBLIC_MANIFOLD_API_URL || "https://manifold.markets";
 })();
 
 export class NetworkError extends Error {
@@ -446,15 +446,21 @@ export class Manifold {
     return this.get<LiteMarket[]>({ path: `/group/by-id/${groupId}/markets` });
   }
 
-  public getMarkets({ limit, before }: { limit?: number; before?: string }) {
-    const params = {
+  public getMarkets({
+    limit,
+    before,
+    ids,
+  }: { limit?: number; before?: string; ids?: string[] } = {}) {
+    const body = {
       ...(limit && { limit: limit.toString() }),
       ...(before && { before }),
+      ...(ids && { ids }),
     };
 
-    return this.get<LiteMarket[], typeof params>({
+    return this.post<LiteMarket[], typeof body>({
       path: "/markets",
-      params,
+      body,
+      requiresAuth: false,
     });
   }
 

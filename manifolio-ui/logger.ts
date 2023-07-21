@@ -12,17 +12,6 @@ const shouldLog = (level: LogLevel): boolean => {
 const logMessage = (level: LogLevel, ...args: unknown[]): void => {
   if (!shouldLog(level)) return;
 
-  // TODO maybe add this back in for production
-  // const timestamp = new Date().toISOString();
-  // const message = args
-  //   .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : arg))
-  //   .join(" ");
-
-  // const logString =
-  //   process.env.NODE_ENV === "production"
-  //     ? JSON.stringify({ timestamp, level, message })
-  //     : `${timestamp} [${level}]: ${message}`;
-
   switch (level) {
     case "debug":
       console.log(...args);
