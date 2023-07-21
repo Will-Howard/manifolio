@@ -98,6 +98,7 @@ const Detail: React.FC<DetailProps> = ({
 interface UserSectionProps {
   usernameInput?: string;
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
+  authedUsername?: string;
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
   refetchCounter: number;
@@ -106,12 +107,13 @@ interface UserSectionProps {
 const UserSection: React.FC<UserSectionProps> = ({
   usernameInput,
   setUsernameInput,
+  authedUsername,
   userModel,
   setUserModel,
   refetchCounter,
 }: UserSectionProps) => {
   const classes = useStyles();
-  const { pushError } = useErrors();
+  const { pushError, clearError } = useErrors();
 
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -128,22 +130,26 @@ const UserSection: React.FC<UserSectionProps> = ({
 
       if (!user) return;
       setUser(user);
+      if (authedUsername && user.username !== authedUsername) {
+        pushError({
+          key: "wrongUser",
+          code: "UNKNOWN_ERROR", // FIXME error codes are turning out to be annoying, maybe remove them and just use the key
+          message: `The user "${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
+          severity: "warning",
+        });
+      }
+      if (authedUsername && user.username === authedUsername) {
+        clearError("wrongUser");
+      }
       setUserModel(undefined);
 
       // slow
       const userModel = await buildUserModel(user);
       // TODO return errors from buildUserModel
-      // pushError({
-      //   key: "userModel",
-      //   code: "UNKNOWN_ERROR",
-      //   message:
-      //     "An unknown error occurred. Which was then suceeded by yet more errors causing this message to stretch onto several lines",
-      //   severity: "error",
-      // });
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
-  }, [setUserModel, usernameInput, refetchCounter]);
+  }, [setUserModel, usernameInput, refetchCounter, authedUsername]);
 
   const userInputStatus = foundUser
     ? "success"

@@ -69,6 +69,9 @@ export default function Home() {
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
     undefined
   );
+  const [authedUsername, setAuthedUsername] = useState<string | undefined>(
+    undefined
+  );
 
   const [refetchCounter, setRefetchCounter] = useState(0);
 
@@ -103,6 +106,7 @@ export default function Home() {
             <UserSection
               usernameInput={usernameInput}
               setUsernameInput={setUsernameInput}
+              authedUsername={authedUsername}
               userModel={userModel}
               setUserModel={setUserModel}
               refetchCounter={refetchCounter}
@@ -120,6 +124,8 @@ export default function Home() {
             <CalculatorSection
               apiKeyInput={apiKeyInput}
               setApiKeyInput={setApiKeyInput}
+              authedUsername={authedUsername}
+              setAuthedUsername={setAuthedUsername}
               setUsernameInput={setUsernameInput}
               userModel={userModel}
               marketModel={marketModel}

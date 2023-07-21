@@ -130,6 +130,8 @@ const Detail: React.FC<DetailProps> = ({ label, value, classes }) => {
 interface CalculatorSectionProps {
   apiKeyInput: string | undefined;
   setApiKeyInput: React.Dispatch<React.SetStateAction<string | undefined>>;
+  authedUsername: string | undefined;
+  setAuthedUsername: React.Dispatch<React.SetStateAction<string | undefined>>;
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
   userModel: UserModel | undefined;
   marketModel: CpmmMarketModel | undefined;
@@ -140,6 +142,8 @@ interface CalculatorSectionProps {
 const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   apiKeyInput,
   setApiKeyInput,
+  authedUsername,
+  setAuthedUsername,
   setUsernameInput,
   userModel,
   marketModel,
@@ -180,9 +184,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     setEditableOutcome(undefined);
   }, []);
 
-  const [authedUsername, setAuthedUsername] = useState<string | undefined>(
-    undefined
-  );
   const [recentlyBet, setRecentlyBet] = useState<boolean>(false);
 
   const estimatedProb = probabilityInput / 100;

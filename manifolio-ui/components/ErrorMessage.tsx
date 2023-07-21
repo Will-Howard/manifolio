@@ -25,8 +25,8 @@ const useStyles = createUseStyles({
     margin: "8px 0",
   },
   warning: {
-    color: "#FFC107",
-    borderColor: "#FFC107",
+    color: "#ff9200",
+    borderColor: "#ff9200",
     backgroundColor: "#FFECB3",
   },
   error: {
