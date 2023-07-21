@@ -5,9 +5,36 @@ import {
   ManifoldPosition,
   type PMF,
 } from "./probability";
-import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
+import {
+  Manifold,
+  type Bet,
+  type User,
+  LiteMarket,
+} from "./vendor/manifold-sdk";
 import { Outcome } from "./calculate";
 import { ManifolioError } from "@/components/ErrorMessage";
+import logger from "@/logger";
+
+let marketsEndpointEnabled = false;
+export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
+const checkMarketsEndpointEnabled = async () => {
+  const api = getManifoldApi();
+  // Get 3 markets
+  const markets = await api.getMarkets({ limit: 5 });
+
+  // Try getting 2 of them by id (2nd and 4th ones)
+  const marketIds = (await markets).map((market) => market.id);
+  const marketsById = await api.getMarkets({
+    ids: [marketIds[1], marketIds[3]],
+    limit: 5,
+  });
+
+  // If we get back 2 markets, then the endpoint is enabled
+  marketsEndpointEnabled = marketsById.length === 2;
+};
+
+void checkMarketsEndpointEnabled();
+setInterval(checkMarketsEndpointEnabled, 60_000 * 5);
 
 export class UserModel {
   user: User;
@@ -31,12 +58,13 @@ export class UserModel {
     this.positions = positions;
     this.balanceAfterLoans = balance - loans;
     this.illiquidEV = positions.reduce(
-      (acc, position) => acc + position.probability * position.payout,
+      (acc, position) =>
+        acc + (position.probability ?? 0) * (position.payout ?? 0),
       0
     );
     this.portfolioEV = this.balanceAfterLoans + this.illiquidEV;
 
-    // First calculate the PMF _not_ exlcuding any markets, for the case where they
+    // First calculate the PMF _not_ excluding any markets, for the case where they
     // bet on something they haven't bet on before
     this.illiquidPmfCache = {
       all: computePayoutDistribution(
@@ -94,7 +122,8 @@ export const fetchUser = async (
 export const buildUserModel = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
-  clearError: (key: string) => void = () => {}
+  clearError: (key: string) => void = () => {},
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {}
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
@@ -105,9 +134,11 @@ export const buildUserModel = async (
   const allBets: Bet[] = [];
   let before: string | undefined = undefined;
 
+  setNumBetsLoaded(0);
   while (true) {
     const bets = await api.getBets({ username, before, limit: 1000 });
     allBets.push(...bets);
+    setNumBetsLoaded(allBets.length);
 
     // Break if:
     // - The latest page of bets is less than 1000 (indicating that there are no more pages)
@@ -165,13 +196,64 @@ export const buildUserModel = async (
     }
   }
 
-  const marketChunks = await Promise.all(
-    chunk(Object.keys(cleanedContractsBetOn), 500).map(async (ids) => {
-      const markets = await api.getMarkets({ ids, limit: 500 });
-      return markets;
-    })
-  );
-  const markets = marketChunks.flat();
+  const allMarketIds = Object.keys(cleanedContractsBetOn);
+
+  const fetchMarkets = async (ids: string[]): Promise<LiteMarket[]> => {
+    if (isMarketsEndpointEnabled()) {
+      const marketChunks = await Promise.all(
+        chunk(ids, 500).map(async (ids) => {
+          const markets = await api.getMarkets({ ids, limit: 500 });
+          return markets;
+        })
+      );
+      return marketChunks.flat();
+    }
+
+    // Fall back to getting markets one by one
+    logger.warn(
+      `Falling back to getting markets one by one. Fetching ${ids.length} markets.`
+    );
+
+    // Sort the ids by abs(evEstimate - netLoan) descending, so that we fetch the most important ones first/
+    // Then take the first 100 to avoid overfetching
+
+    const allBets = Object.values(cleanedContractsBetOn);
+    const sortedIds = allBets
+      .sort(
+        (a, b) =>
+          Math.abs(b.evEstimate - b.netLoan) -
+          Math.abs(a.evEstimate - a.netLoan)
+      )
+      .map((bet) => bet.contractId);
+    const truncatedIds = sortedIds.slice(0, 100);
+
+    if (truncatedIds.length < ids.length) {
+      pushError({
+        key: "positionsTruncated",
+        code: "UNKNOWN_ERROR",
+        message: `Only ${truncatedIds.length} of ${ids.length} positions could be loaded. This will mean that "Portfolio value" and "Total loans" may be incorrect. This is due to a limitation of the manifold API and will be fixed soon`,
+        severity: "warning",
+      });
+    } else {
+      clearError("positionsTruncated");
+    }
+
+    const markets = await Promise.all(
+      truncatedIds.map(async (id) => {
+        for (let i = 0; i < 5; i++) {
+          try {
+            const market = await api.getMarket({ id });
+            return market;
+          } catch (e) {
+            logger.warn(`Failed to fetch market ${id} on attempt ${i + 1}`);
+          }
+        }
+      })
+    );
+    return markets.filter((market) => market !== undefined) as LiteMarket[];
+  };
+
+  const markets = await fetchMarkets(allMarketIds);
 
   const openMarkets = markets.filter(
     (market) =>
@@ -199,7 +281,7 @@ export const buildUserModel = async (
         payout,
         loan: bet.netLoan,
         contractId: market.id,
-        outcome: isYesBet ? "YES" : ("NO" as Outcome),
+        outcome: (isYesBet ? "YES" : "NO") as Outcome,
         marketName: market.question,
         // ev: probability * payout, // DEBUG
       };

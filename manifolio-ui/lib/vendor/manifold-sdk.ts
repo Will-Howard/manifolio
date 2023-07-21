@@ -451,6 +451,19 @@ export class Manifold {
     before,
     ids,
   }: { limit?: number; before?: string; ids?: string[] } = {}) {
+    if (!ids) {
+      const params = {
+        ...(limit && { limit: limit.toString() }),
+        ...(before && { before }),
+      };
+
+      return this.get<LiteMarket[], typeof params>({
+        path: "/markets",
+        params,
+        requiresAuth: false,
+      });
+    }
+
     const body = {
       ...(limit && { limit: limit.toString() }),
       ...(before && { before }),
