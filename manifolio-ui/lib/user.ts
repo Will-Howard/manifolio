@@ -4,7 +4,6 @@ import {
   computePayoutDistribution,
   ManifoldPosition,
   type PMF,
-  type PositionModel as PositionModel,
 } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 import { Outcome } from "./calculate";
@@ -125,9 +124,9 @@ export const buildUserModel = async (
     (bet) => bet.isFilled !== undefined || bet.amount < 0
   );
   // TODO handle these in some way
-  const nonCpmmBets = allBets.filter(
-    (bet) => bet.isFilled === undefined && bet.amount > 0
-  );
+  // const nonCpmmBets = allBets.filter(
+  //   (bet) => bet.isFilled === undefined && bet.amount > 0
+  // );
   const betsByMarket = groupBy(cpmmBets, (bet) => bet.contractId);
 
   const cleanedContractsBetOn: Dictionary<{

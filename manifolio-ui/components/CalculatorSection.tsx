@@ -183,7 +183,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const [authedUsername, setAuthedUsername] = useState<string | undefined>(
     undefined
   );
-  const [justBet, setJustBet] = useState<boolean>(false);
+  const [recentlyBet, setRecentlyBet] = useState<boolean>(false);
 
   const estimatedProb = probabilityInput / 100;
 
@@ -298,7 +298,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const placeBet = useCallback(async () => {
     if (!betAmount || !marketModel?.market.id || !betOutcome) return;
-    setJustBet(true);
+    setRecentlyBet(true);
 
     const body = {
       amount: Math.round(betAmount),
@@ -318,7 +318,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
     setTimeout(() => {
       setRefetchCounter((prev) => prev + 1);
-      setJustBet(false);
+      setRecentlyBet(false);
     }, 1500);
   }, [
     apiKeyInput,
@@ -493,7 +493,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           />
           <Button
             variant={"contained"}
-            disabled={!authedUsername || hasErrors || justBet}
+            disabled={!authedUsername || hasErrors || recentlyBet}
             className={classes.placeBetButton}
             onClick={placeBet}
           >
