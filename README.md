@@ -37,16 +37,23 @@ This calculator accounts for those two things.
 ![Manifolio Screenshot](images/screenshot.png)
 
 What all the fields mean:
- - User: Your username
-   - Balance: self explanatory
-   - Total loans: self explanatory
-   - Portfolio value:
+ - User: Your username (although it doesn't have to be you, you can put in any user)
+   - Balance: Self explanatory
+   - Total loans: Self explanatory
+   - Portfolio value: Expected value of your portfolio. This is "balance - loans + expected value of open bets"
  - Market: The url of the market you want to bet on
-   - Market probability:
-   - Your position: The 
+   - Market probability: Self explanatory
+   - Your position: The current shares you have in this market. This is taken into account in the calculation, so once you place one bet it should then recommend that you don't bet any more on that market because you are already at the optimal position
    - Est. time to resolution: This is currently just the time to market close. It's used in the calculation of the "annual return" fields below. In general markets with very long 
  - Prob. estimate: Your estimate of the true probability of the question resolving YES
- - Kelly fraction: . The exact meaning of this number is that the 
+ - Kelly fraction: Best thought of as "a number where higher means more risk and lower means less risk, which you should leave at around 50%". The exact meaning of this number is that the probability estimate used in the calculation is taken as x% of the way between the market probability and your estimate, so if e.g. the market is at 50% and you think the probability is 80%, then a Kelly fraction of 50% will make it so 65% is used thoughout the calculation. This helps protect you from the [optimiser's curse](https://forum.effectivealtruism.org/topics/optimizer-s-curse)
+ - Bet recommendation section:
+   - Recommended bet: Self explanatory
+   - Annual return from a portfolio of similar bets: This is the expected return of the bet (just the mean return, no logarithms), to be taken as "if I could find many bets as good as this one, and didn't put too much into any particular one, how much would I make on average?"
+   - Annual return if this were your only bet: This is the expected growth rate of your entire portfolio, supposing you only make the recommended bet (and cash out all your other positions)
+ - Place bet section:
+   - API key: This is required to actually place bets, and will set the User field when you enter it. You can find this by going to the edit profile menu on manifold, you may have to generate one if you don't have one already. Note that you set the User to be different from the one associated with the API key, I don't recommend you do this
+   - Everything else is the same as the manifold UI, so is hopefully self explanatory. The only potentially confusing thing is that selling a position is achieve by buying the other side (see below)
 
 
 ### Things to watch out for/known issues
