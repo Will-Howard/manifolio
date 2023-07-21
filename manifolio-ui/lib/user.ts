@@ -7,6 +7,7 @@ import {
 } from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
 import { Outcome } from "./calculate";
+import { ManifolioError } from "@/components/ErrorMessage";
 
 export class UserModel {
   user: User;
@@ -91,7 +92,9 @@ export const fetchUser = async (
 };
 
 export const buildUserModel = async (
-  manifoldUser: User
+  manifoldUser: User,
+  pushError: (error: ManifolioError) => void = () => {},
+  clearError: (key: string) => void = () => {}
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
@@ -202,6 +205,18 @@ export const buildUserModel = async (
       };
     })
     .filter((pos) => pos !== undefined) as ManifoldPosition[];
+
+  if (positions.length < openMarkets.length) {
+    const discrepancy = openMarkets.length - positions.length;
+    pushError({
+      key: "userPositionMismatch",
+      code: "UNKNOWN_ERROR",
+      message: `${discrepancy} positions for user "${username}" could not be loaded. This will mean that "Portfolio value" and "Total loans" may be incorrect.`,
+      severity: "warning",
+    });
+  } else {
+    clearError("userPositionMismatch");
+  }
 
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 

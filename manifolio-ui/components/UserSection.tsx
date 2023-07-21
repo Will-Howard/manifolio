@@ -144,7 +144,7 @@ const UserSection: React.FC<UserSectionProps> = ({
       setUserModel(undefined);
 
       // slow
-      const userModel = await buildUserModel(user);
+      const userModel = await buildUserModel(user, pushError, clearError);
       // TODO return errors from buildUserModel
       setUserModel(userModel);
     };
