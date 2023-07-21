@@ -59,6 +59,7 @@ interface DetailProps {
   value: number | undefined;
   isInverse?: boolean;
   loading?: boolean;
+  numBetsLoaded?: number;
   classes: Classes;
 }
 
@@ -67,18 +68,24 @@ const Detail: React.FC<DetailProps> = ({
   value,
   isInverse,
   loading,
+  numBetsLoaded,
   classes,
 }) => {
   // flip the sign if isInverse is true
   const isPositive = value !== undefined && value > 0 !== isInverse;
   const isNegative = value !== undefined && value < 0 !== isInverse;
 
-  const formattedValue =
-    value !== undefined
-      ? parseInt(value.toFixed(0)).toLocaleString()
-      : loading
-      ? "..."
-      : "—";
+  const formatValue = (value: number | undefined) => {
+    if (value === undefined) {
+      if (!loading) return "M—";
+      if (numBetsLoaded === undefined || numBetsLoaded < 3000) return "M...";
+
+      return `${numBetsLoaded.toLocaleString()} bets loaded...`;
+    }
+    return `M${parseInt(value.toFixed(0)).toLocaleString()}`;
+  };
+
+  const formattedValue = formatValue(value);
 
   return (
     <div className={classes.detailsRow}>
@@ -89,7 +96,7 @@ const Detail: React.FC<DetailProps> = ({
           [classes.red]: isNegative,
         })}
       >
-        M{formattedValue}
+        {formattedValue}
       </span>
     </div>
   );
@@ -117,10 +124,17 @@ const UserSection: React.FC<UserSectionProps> = ({
 
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
+  const [numBetsLoaded, setNumBetsLoaded] = useState<number>(0);
 
   // Fetch the user
   useEffect(() => {
-    if (!usernameInput || usernameInput.length == 0) return;
+    if (
+      !usernameInput ||
+      usernameInput.length == 0 ||
+      (usernameInput === user?.username &&
+        usernameInput === userModel?.user?.username)
+    )
+      return;
     const parsedUsername =
       usernameInput.split("/").pop()?.replace("@", "") || "";
 
@@ -134,7 +148,7 @@ const UserSection: React.FC<UserSectionProps> = ({
         pushError({
           key: "wrongUser",
           code: "UNKNOWN_ERROR", // FIXME error codes are turning out to be annoying, maybe remove them and just use the key
-          message: `The user "${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
+          message: `"${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
           severity: "warning",
         });
       }
@@ -144,7 +158,12 @@ const UserSection: React.FC<UserSectionProps> = ({
       setUserModel(undefined);
 
       // slow
-      const userModel = await buildUserModel(user, pushError, clearError);
+      const userModel = await buildUserModel(
+        user,
+        pushError,
+        clearError,
+        setNumBetsLoaded
+      );
       // TODO return errors from buildUserModel
       setUserModel(userModel);
     };
@@ -203,6 +222,7 @@ const UserSection: React.FC<UserSectionProps> = ({
             isInverse
             classes={classes}
             loading={!!user && !userModel}
+            numBetsLoaded={numBetsLoaded}
           />
           <Detail
             label="Portfolio value"
