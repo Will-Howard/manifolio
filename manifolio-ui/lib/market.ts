@@ -8,10 +8,10 @@ import {
 } from "./vendor/manifold-helpers";
 
 export class CpmmMarketModel {
-  public market: FullMarket; // TODO it would be nice to use a pared down version of this
+  public market: FullMarket;
   public bets: Bet[];
   public unfilledBets: Bet[];
-  public balanceByUserId: Record<string, number>; // TODO refactor to include these in the LimitBets (but not now)
+  public balanceByUserId: Record<string, number>;
 
   constructor({
     market,
@@ -58,6 +58,7 @@ const buildCpmmMarketModelInner = async (
   const allBets: Bet[] = [];
   let before: string | undefined = undefined;
 
+  // TODO I think we don't actually need all bets, just the unfilled ones
   while (true) {
     const bets = await api.getBets({
       marketId: market.id,

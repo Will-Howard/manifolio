@@ -316,6 +316,32 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@datadog/browser-core@4.45.0":
+  version "4.45.0"
+  resolved "https://registry.yarnpkg.com/@datadog/browser-core/-/browser-core-4.45.0.tgz#fe6ed4d2df6680746adc8ef9ec07636778de5f9c"
+  integrity sha512-w0zlk5xiZsg+1XCU5PvI9tymnGhe35j0tLWMgcuwgulKfcUHfXZlYX1NRxWrgRvpFosAi/xwY8viNA6LLSYowQ==
+
+"@datadog/browser-rum-core@4.45.0":
+  version "4.45.0"
+  resolved "https://registry.yarnpkg.com/@datadog/browser-rum-core/-/browser-rum-core-4.45.0.tgz#45d3ca4fbcf161ee946ade05d150b2f60feda16f"
+  integrity sha512-0r0tkjAq2mzWdRhTJgtrFin8Px07bh/V8fnC0CLjqQTHffLhLVqgS4YcjHn1K8LAYLrJDY35lOBuLyl39UmSdQ==
+  dependencies:
+    "@datadog/browser-core" "4.45.0"
+
+"@datadog/browser-rum@^4.45.0":
+  version "4.45.0"
+  resolved "https://registry.yarnpkg.com/@datadog/browser-rum/-/browser-rum-4.45.0.tgz#39ec9481fc277de9ad16b2fb9545bfa6933a3608"
+  integrity sha512-xbcXGU1LmTBRX3Ban2+0cqp/HQ3moZB5nr0FBCr+YpCytsRyZDY5o0sUbqrUhUjEdqdzsZ3paqonl4RKs7dLJg==
+  dependencies:
+    "@datadog/browser-core" "4.45.0"
+    "@datadog/browser-rum-core" "4.45.0"
+    "@datadog/browser-worker" "4.45.0"
+
+"@datadog/browser-worker@4.45.0":
+  version "4.45.0"
+  resolved "https://registry.yarnpkg.com/@datadog/browser-worker/-/browser-worker-4.45.0.tgz#eac7af7c5e5cb1aea4f4f9b281189773b19d59a1"
+  integrity sha512-VLbtn78R4LU1quOHWmLKUNndPg4fx85zumeP8j0EYPxJXo674ZPG9IvNsEk0JG5ik7KVm/66VTgLTffyfy/1hw==
+
 "@emotion/babel-plugin@^11.11.0":
   version "11.11.0"
   resolved "https://registry.yarnpkg.com/@emotion/babel-plugin/-/babel-plugin-11.11.0.tgz#c2d872b6a7767a9d176d007f5b31f7d504bb5d6c"
@@ -1366,6 +1392,11 @@
   integrity sha512-NRfJE9Cgpmu4fx716q9SYmU4jxxhYRU1BQo239Txt/9N3EC745XZX1Yl7h/SBIDlo1ANVOCRB4YDXjaQdoKCHQ==
   dependencies:
     "@types/jest" "*"
+
+"@types/uuid@^9.0.2":
+  version "9.0.2"
+  resolved "https://registry.yarnpkg.com/@types/uuid/-/uuid-9.0.2.tgz#ede1d1b1e451548d44919dc226253e32a6952c4b"
+  integrity sha512-kNnC1GFBLuhImSnV7w4njQkUiJi0ZXUycu1rUaouPqiKlXkh77JKgdRnTAp1x5eBwcIwbtI+3otwzuIDEuDoxQ==
 
 "@types/yargs-parser@*":
   version "21.0.0"
@@ -4225,6 +4256,11 @@ mkdirp-classic@^0.5.2, mkdirp-classic@^0.5.3:
   resolved "https://registry.yarnpkg.com/mkdirp-classic/-/mkdirp-classic-0.5.3.tgz#fa10c9115cc6d8865be221ba47ee9bed78601113"
   integrity sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==
 
+moment@^2.29.4:
+  version "2.29.4"
+  resolved "https://registry.yarnpkg.com/moment/-/moment-2.29.4.tgz#3dbe052889fe7c1b2ed966fcb3a77328964ef108"
+  integrity sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==
+
 ms@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
@@ -5473,6 +5509,11 @@ util-deprecate@^1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/util-deprecate/-/util-deprecate-1.0.2.tgz#450d4dc9fa70de732762fbd2d4a28981419a0ccf"
   integrity sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==
+
+uuid@^9.0.0:
+  version "9.0.0"
+  resolved "https://registry.yarnpkg.com/uuid/-/uuid-9.0.0.tgz#592f550650024a38ceb0c562f2f6aa435761efb5"
+  integrity sha512-MXcSTerfPa4uqyzStbRoTgt5XIe3x5+42+q1sDuy3R5MDk66URdLMOZe5aPX/SQd+kuYAh0FdP/pO28IkQyTeg==
 
 v8-to-istanbul@^9.0.1:
   version "9.1.0"

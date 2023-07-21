@@ -1,22 +1,28 @@
-import { Dictionary, groupBy } from "lodash";
+import { Dictionary, chunk, groupBy } from "lodash";
 import { getManifoldApi } from "./manifold-api";
-import type { PositionModel as PositionModel } from "./probability";
+import {
+  computePayoutDistribution,
+  ManifoldPosition,
+  type PMF,
+} from "./probability";
 import { Manifold, type Bet, type User } from "./vendor/manifold-sdk";
+import { Outcome } from "./calculate";
 
 export class UserModel {
   user: User;
   balance: number;
   loans: number;
   balanceAfterLoans: number;
-  positions: PositionModel[];
+  positions: ManifoldPosition[];
   illiquidEV: number;
   portfolioEV: number;
+  illiquidPmfCache: Record<string, PMF>;
 
   constructor(
     user: User,
     balance: number,
     loans: number,
-    positions: PositionModel[]
+    positions: ManifoldPosition[]
   ) {
     this.user = user;
     this.balance = balance;
@@ -28,6 +34,46 @@ export class UserModel {
       0
     );
     this.portfolioEV = this.balanceAfterLoans + this.illiquidEV;
+
+    // First calculate the PMF _not_ exlcuding any markets, for the case where they
+    // bet on something they haven't bet on before
+    this.illiquidPmfCache = {
+      all: computePayoutDistribution(
+        positions,
+        positions.length > 12 ? "monte-carlo" : "cartesian",
+        50_000
+      ),
+    };
+  }
+
+  /**
+   * Get the probability mass function of the payouts of the user's portfolio, possibly excluding the market
+   * with the given ID (for use when they are betting on a market they already have a position in)
+   * @param excludingMarketId
+   * @returns
+   */
+  getIlliquidPmf(excludingMarketId?: string): PMF {
+    if (!excludingMarketId) {
+      return this.illiquidPmfCache["all"];
+    }
+
+    if (this.illiquidPmfCache[excludingMarketId]) {
+      return this.illiquidPmfCache[excludingMarketId];
+    }
+
+    const positionsExcludingMarket = this.positions.filter(
+      (pos) => pos.contractId !== excludingMarketId
+    );
+    this.illiquidPmfCache[excludingMarketId] = computePayoutDistribution(
+      positionsExcludingMarket,
+      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian",
+      50_000
+    );
+    return this.illiquidPmfCache[excludingMarketId];
+  }
+
+  getPosition(contractId: string): ManifoldPosition | undefined {
+    return this.positions.find((pos) => pos.contractId === contractId);
   }
 }
 
@@ -78,9 +124,9 @@ export const buildUserModel = async (
     (bet) => bet.isFilled !== undefined || bet.amount < 0
   );
   // TODO handle these in some way
-  const nonCpmmBets = allBets.filter(
-    (bet) => bet.isFilled === undefined && bet.amount > 0
-  );
+  // const nonCpmmBets = allBets.filter(
+  //   (bet) => bet.isFilled === undefined && bet.amount > 0
+  // );
   const betsByMarket = groupBy(cpmmBets, (bet) => bet.contractId);
 
   const cleanedContractsBetOn: Dictionary<{
@@ -116,24 +162,13 @@ export const buildUserModel = async (
     }
   }
 
-  const contractsByEstEV = Object.values(cleanedContractsBetOn).sort(
-    (a, b) => b.evEstimate - a.evEstimate
-  );
-
-  const markets = await Promise.all(
-    contractsByEstEV.map(({ contractId }) => {
-      // Retry 3 times
-      for (let i = 0; i < 3; i++) {
-        try {
-          const market = api.getMarket({ id: contractId });
-          return market;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      throw new Error(`Failed to fetch market ${contractId}`);
+  const marketChunks = await Promise.all(
+    chunk(Object.keys(cleanedContractsBetOn), 500).map(async (ids) => {
+      const markets = await api.getMarkets({ ids, limit: 500 });
+      return markets;
     })
   );
+  const markets = marketChunks.flat();
 
   const openMarkets = markets.filter(
     (market) =>
@@ -144,22 +179,29 @@ export const buildUserModel = async (
       market.mechanism === "cpmm-1"
   );
 
-  const positions = openMarkets.map((market) => {
-    const bet = cleanedContractsBetOn[market.id];
-    const isYesBet = bet.netYesShares > 0;
+  const positions = openMarkets
+    .map((market) => {
+      const bet = cleanedContractsBetOn[market.id];
+      if (!bet) return undefined;
 
-    const probability = isYesBet ? market.probability : 1 - market.probability;
-    const payout = Math.abs(bet.netYesShares);
+      const isYesBet = bet.netYesShares > 0;
 
-    return {
-      probability,
-      payout,
-      loan: bet.netLoan,
-      contractId: market.id,
-      marketName: market.question,
-      // ev: probability * payout, // DEBUG
-    };
-  });
+      const probability = isYesBet
+        ? market.probability
+        : 1 - market.probability;
+      const payout = Math.abs(bet.netYesShares);
+
+      return {
+        probability,
+        payout,
+        loan: bet.netLoan,
+        contractId: market.id,
+        outcome: isYesBet ? "YES" : ("NO" as Outcome),
+        marketName: market.question,
+        // ev: probability * payout, // DEBUG
+      };
+    })
+    .filter((pos) => pos !== undefined) as ManifoldPosition[];
 
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 

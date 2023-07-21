@@ -1,6 +1,7 @@
 import CalculatorSection from "@/components/CalculatorSection";
 import MarketSection from "@/components/MarketSection";
 import UserSection from "@/components/UserSection";
+import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
@@ -68,6 +69,11 @@ export default function Home() {
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
     undefined
   );
+  const [authedUsername, setAuthedUsername] = useState<string | undefined>(
+    undefined
+  );
+
+  const [refetchCounter, setRefetchCounter] = useState(0);
 
   return (
     <>
@@ -84,43 +90,51 @@ export default function Home() {
           name="description"
           content="Bet sizing tool for Manifold Markets"
         />
-        {/* TODO does this actually work (because it's a relative link)? */}
-        <meta name="twitter:image" content="/book.svg" />
+        <meta name="twitter:image" content="https://manifol.io/book.svg" />
         <link rel="icon" href="/book.svg" />
       </Head>
-      <main className={classes.main}>
-        <div className={classNames(classes.centralColumn, petrona.className)}>
-          <h1 className={classes.title}>Manifolio</h1>
-          <p className={classes.subtitle}>
-            Bet size calculator for{" "}
-            <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-            {/* TODO */}
-            <a href="https://manifold.markets/">here</a>
-          </p>
-          <div className={classes.headerBorder} />
-          <UserSection
-            usernameInput={usernameInput}
-            setUsernameInput={setUsernameInput}
-            userModel={userModel}
-            setUserModel={setUserModel}
-          />
-          <hr className={classes.hr} />
-          <MarketSection
-            marketInput={marketInput}
-            setMarketInput={setMarketInput}
-            marketModel={marketModel}
-            setMarketModel={setMarketModel}
-          />
-          <hr className={classes.hr} />
-          <CalculatorSection
-            apiKeyInput={apiKeyInput}
-            setApiKeyInput={setApiKeyInput}
-            setUsernameInput={setUsernameInput}
-            userModel={userModel}
-            marketModel={marketModel}
-          />
-        </div>
-      </main>
+      <ErrorProvider>
+        <main className={classes.main}>
+          <div className={classNames(classes.centralColumn, petrona.className)}>
+            <h1 className={classes.title}>Manifolio</h1>
+            <p className={classes.subtitle}>
+              Bet size calculator for{" "}
+              <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
+              <a href="https://github.com/Will-Howard/manifolio/">here</a>
+            </p>
+            <div className={classes.headerBorder} />
+            <UserSection
+              usernameInput={usernameInput}
+              setUsernameInput={setUsernameInput}
+              authedUsername={authedUsername}
+              userModel={userModel}
+              setUserModel={setUserModel}
+              refetchCounter={refetchCounter}
+            />
+            <hr className={classes.hr} />
+            <MarketSection
+              marketInput={marketInput}
+              setMarketInput={setMarketInput}
+              marketModel={marketModel}
+              setMarketModel={setMarketModel}
+              userModel={userModel}
+              refetchCounter={refetchCounter}
+            />
+            <hr className={classes.hr} />
+            <CalculatorSection
+              apiKeyInput={apiKeyInput}
+              setApiKeyInput={setApiKeyInput}
+              authedUsername={authedUsername}
+              setAuthedUsername={setAuthedUsername}
+              setUsernameInput={setUsernameInput}
+              userModel={userModel}
+              marketModel={marketModel}
+              refetchCounter={refetchCounter}
+              setRefetchCounter={setRefetchCounter}
+            />
+          </div>
+        </main>
+      </ErrorProvider>
     </>
   );
 }

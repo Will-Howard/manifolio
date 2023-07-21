@@ -74,7 +74,7 @@ export function getCpmmProbability(
   return (p * NO) / ((1 - p) * YES + p * NO);
 }
 
-function binarySearch(
+export function binarySearch(
   min: number,
   max: number,
   comparator: (x: number) => number
@@ -117,6 +117,7 @@ function calculateCpmmShares(
 
 function getCpmmLiquidity(pool: { [outcome: string]: number }, p: number) {
   const { YES, NO } = pool;
+  // Note: if YES == NO then this == YES
   return YES ** p * NO ** (1 - p);
 }
 

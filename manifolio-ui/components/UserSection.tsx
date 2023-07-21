@@ -6,6 +6,7 @@ import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
+import { useErrors } from "./hooks/useErrors";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -24,6 +25,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   avatar: {
     borderRadius: "50%",
     margin: "8px 24px 8px 4px",
+    objectFit: "cover",
   },
   detailsTitle: {
     fontWeight: 600,
@@ -56,6 +58,7 @@ interface DetailProps {
   label: string;
   value: number | undefined;
   isInverse?: boolean;
+  loading?: boolean;
   classes: Classes;
 }
 
@@ -63,6 +66,7 @@ const Detail: React.FC<DetailProps> = ({
   label,
   value,
   isInverse,
+  loading,
   classes,
 }) => {
   // flip the sign if isInverse is true
@@ -70,7 +74,11 @@ const Detail: React.FC<DetailProps> = ({
   const isNegative = value !== undefined && value < 0 !== isInverse;
 
   const formattedValue =
-    value !== undefined ? parseInt(value.toFixed(0)).toLocaleString() : "—";
+    value !== undefined
+      ? parseInt(value.toFixed(0)).toLocaleString()
+      : loading
+      ? "..."
+      : "—";
 
   return (
     <div className={classes.detailsRow}>
@@ -90,17 +98,22 @@ const Detail: React.FC<DetailProps> = ({
 interface UserSectionProps {
   usernameInput?: string;
   setUsernameInput: React.Dispatch<React.SetStateAction<string | undefined>>;
+  authedUsername?: string;
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
+  refetchCounter: number;
 }
 
 const UserSection: React.FC<UserSectionProps> = ({
   usernameInput,
   setUsernameInput,
+  authedUsername,
   userModel,
   setUserModel,
+  refetchCounter,
 }: UserSectionProps) => {
   const classes = useStyles();
+  const { pushError, clearError } = useErrors();
 
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
@@ -117,13 +130,26 @@ const UserSection: React.FC<UserSectionProps> = ({
 
       if (!user) return;
       setUser(user);
+      if (authedUsername && user.username !== authedUsername) {
+        pushError({
+          key: "wrongUser",
+          code: "UNKNOWN_ERROR", // FIXME error codes are turning out to be annoying, maybe remove them and just use the key
+          message: `The user "${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
+          severity: "warning",
+        });
+      }
+      if (authedUsername && user.username === authedUsername) {
+        clearError("wrongUser");
+      }
+      setUserModel(undefined);
 
       // slow
       const userModel = await buildUserModel(user);
+      // TODO return errors from buildUserModel
       setUserModel(userModel);
     };
     void tryFetchUser(parsedUsername);
-  }, [setUserModel, usernameInput]);
+  }, [setUserModel, usernameInput, refetchCounter, authedUsername]);
 
   const userInputStatus = foundUser
     ? "success"
@@ -133,6 +159,13 @@ const UserSection: React.FC<UserSectionProps> = ({
 
   const { name = "—", avatarUrl = "https://manifold.markets/logo.svg" } =
     user || {};
+
+  const displayBalance = userModel?.balance ?? user?.balance;
+  const displayPortfolioEV =
+    userModel?.portfolioEV ??
+    // profit = portfolioEV - totalDeposits => portfolioEV = profit + totalDeposits
+    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
+  const displayLoans = userModel?.loans;
 
   return (
     <>
@@ -160,19 +193,22 @@ const UserSection: React.FC<UserSectionProps> = ({
           <div className={classes.detailsTitle}>{name}</div>
           <Detail
             label="Balance"
-            value={userModel?.balance}
+            value={displayBalance}
             classes={classes}
+            loading={false}
           />
           <Detail
             label="Total loans"
-            value={userModel?.loans}
+            value={displayLoans}
             isInverse
             classes={classes}
+            loading={!!user && !userModel}
           />
           <Detail
             label="Portfolio value"
-            value={userModel?.portfolioEV}
+            value={displayPortfolioEV}
             classes={classes}
+            loading={false}
           />
         </div>
       </div>

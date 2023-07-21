@@ -103,7 +103,6 @@ describe("Tests for probability logic", () => {
   });
 
   test("For small number of bets: combined cumulative distribution is as expected from manual calculation", () => {
-    // TODO more thorough testing, this is just a sanity check
     const bets: PositionModel[] = [
       { probability: 0.3, payout: 2 },
       { probability: 0.5, payout: 3 },
