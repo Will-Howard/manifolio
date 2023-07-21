@@ -179,23 +179,29 @@ export const buildUserModel = async (
       market.mechanism === "cpmm-1"
   );
 
-  const positions = openMarkets.map((market) => {
-    const bet = cleanedContractsBetOn[market.id];
-    const isYesBet = bet.netYesShares > 0;
+  const positions = openMarkets
+    .map((market) => {
+      const bet = cleanedContractsBetOn[market.id];
+      if (!bet) return undefined;
 
-    const probability = isYesBet ? market.probability : 1 - market.probability;
-    const payout = Math.abs(bet.netYesShares);
+      const isYesBet = bet.netYesShares > 0;
 
-    return {
-      probability,
-      payout,
-      loan: bet.netLoan,
-      contractId: market.id,
-      outcome: isYesBet ? "YES" : ("NO" as Outcome),
-      marketName: market.question,
-      // ev: probability * payout, // DEBUG
-    };
-  });
+      const probability = isYesBet
+        ? market.probability
+        : 1 - market.probability;
+      const payout = Math.abs(bet.netYesShares);
+
+      return {
+        probability,
+        payout,
+        loan: bet.netLoan,
+        contractId: market.id,
+        outcome: isYesBet ? "YES" : ("NO" as Outcome),
+        marketName: market.question,
+        // ev: probability * payout, // DEBUG
+      };
+    })
+    .filter((pos) => pos !== undefined) as ManifoldPosition[];
 
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 
