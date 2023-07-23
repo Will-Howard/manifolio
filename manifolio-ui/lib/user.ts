@@ -152,7 +152,7 @@ const fetchMarketsByIds = async ({
     pushError({
       key: "positionsTruncated",
       code: "UNKNOWN_ERROR",
-      message: `Only ${truncatedIds.length} of ${ids.length} positions fetch to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
+      message: `Only ${truncatedIds.length} of ${ids.length} positions fetched to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
       severity: "warning",
     });
   } else {

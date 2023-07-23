@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { UserModel } from "@/lib/user";
-import { CpmmMarketModel } from "@/lib/market";
 import { InputField } from "@/components/InputField";
 import {
   BetRecommendationFull,
@@ -19,6 +18,7 @@ import { formatInt } from "@/lib/utils";
 import { ManifolioError, useErrors } from "./hooks/useErrors";
 import ErrorMessage from "./ErrorMessage";
 import { Bet } from "@/lib/vendor/manifold-sdk";
+import { CpmmMarketModel } from "@/lib/market";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -300,6 +300,16 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const betProbChange =
     (betProbAfter ?? 0) - (marketModel?.market.probability ?? 0);
 
+  const formatRoi = (roi: number) => {
+    const roiPercent = (roi - 1) * 100;
+    if (Math.abs(roiPercent) < 0.01) return "0%"; // Avoid -0.0%
+
+    // 1 decimal place if it's less than 10%, 2 if it's less than 1%, 0 otherwise
+    const decimalPlaces = roiPercent < 1 ? 2 : roiPercent < 10 ? 1 : 0;
+    // Also format with commas
+    return `${parseFloat(roiPercent.toFixed(decimalPlaces)).toLocaleString()}%`;
+  };
+
   const placeBet = useCallback(async () => {
     if (!betAmount || !marketModel?.market.id || !betOutcome) return;
     setRecentlyBet(true);
@@ -338,16 +348,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     setPlacedBets,
     setRefetchCounter,
   ]);
-
-  const formatRoi = (roi: number) => {
-    const roiPercent = (roi - 1) * 100;
-    if (Math.abs(roiPercent) < 0.01) return "0%"; // Avoid -0.0%
-
-    // 1 decimal place if it's less than 10%, 2 if it's less than 1%, 0 otherwise
-    const decimalPlaces = roiPercent < 1 ? 2 : roiPercent < 10 ? 1 : 0;
-    // Also format with commas
-    return `${parseFloat(roiPercent.toFixed(decimalPlaces)).toLocaleString()}%`;
-  };
 
   return (
     <>
