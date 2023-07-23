@@ -13,6 +13,7 @@ type LimitProps = {
   // I.e. A limit order could be filled by partially matching with several bets.
   // Non-limit orders can also be filled by matching with multiple limit orders.
   fills: fill[];
+  expiresAt?: number; // Unix timestamp in milliseconds. If undefined, the bet never expires.
 };
 
 // Binary market limit order.
@@ -242,7 +243,8 @@ const computeFill = (
   outcome: "YES" | "NO",
   limitProb: number | undefined,
   cpmmState: CpmmState,
-  matchedBet: LimitBet | undefined
+  matchedBet: LimitBet | undefined,
+  matchedBetUserBalance: number | undefined
 ) => {
   const prob = getCpmmProbability(cpmmState.pool, cpmmState.p);
 
@@ -276,8 +278,7 @@ const computeFill = (
     const buyAmount =
       limit === undefined
         ? amount
-        : // calculateCpmmAmountToProb covers the case where the amount doesn't take us down to the limit prob
-          Math.min(
+        : Math.min(
             amount,
             calculateCpmmAmountToProb(cpmmState, limit, outcome)
           );
@@ -308,11 +309,19 @@ const computeFill = (
   }
 
   // Fill from matchedBet.
-  const matchRemaining = matchedBet.orderAmount - matchedBet.amount;
+  const amountRemaining = matchedBet.orderAmount - matchedBet.amount;
+  const matchableUserBalance =
+    matchedBetUserBalance && matchedBetUserBalance < 0
+      ? 0
+      : matchedBetUserBalance;
+  const amountToFill = Math.min(
+    amountRemaining,
+    matchableUserBalance ?? amountRemaining
+  );
   const shares = Math.min(
     amount /
       (outcome === "YES" ? matchedBet.limitProb : 1 - matchedBet.limitProb),
-    matchRemaining /
+    amountToFill /
       (outcome === "YES" ? 1 - matchedBet.limitProb : matchedBet.limitProb)
   );
 
@@ -350,23 +359,27 @@ const addObjects = <K extends string>(
   return newObj;
 };
 
-const computeFills = (
+export const computeFills = (
+  state: CpmmState,
   outcome: "YES" | "NO",
   betAmount: number,
-  state: CpmmState,
   limitProb: number | undefined,
   unfilledBets: LimitBet[],
-  balanceByUserId: { [userId: string]: number }
+  balanceByUserId: { [userId: string]: number | undefined }
 ) => {
   if (isNaN(betAmount)) {
-    throw new Error(`Invalid bet amount: ${betAmount}`);
+    throw new Error("Invalid bet amount: ${betAmount}");
   }
   if (isNaN(limitProb ?? 0)) {
-    throw new Error(`Invalid limitProb: ${limitProb}`);
+    throw new Error("Invalid limitProb: ${limitProb}");
   }
+  const now = Date.now();
 
   const sortedBets = sortBy(
-    unfilledBets.filter((bet) => bet.outcome !== outcome),
+    unfilledBets.filter(
+      (bet) =>
+        bet.outcome !== outcome && (bet.expiresAt ? bet.expiresAt > now : true)
+    ),
     (bet) => (outcome === "YES" ? bet.limitProb : -bet.limitProb),
     (bet) => bet.createdTime
   );
@@ -388,7 +401,14 @@ const computeFills = (
   let i = 0;
   while (true) {
     const matchedBet: LimitBet | undefined = sortedBets[i];
-    const fill = computeFill(amount, outcome, limitProb, cpmmState, matchedBet);
+    const fill = computeFill(
+      amount,
+      outcome,
+      limitProb,
+      cpmmState,
+      matchedBet,
+      currentBalanceByUserId[matchedBet?.userId ?? ""]
+    );
     if (!fill) break;
 
     const { taker, maker } = fill;
@@ -403,14 +423,17 @@ const computeFills = (
       i++;
       const { userId } = maker.bet;
       const makerBalance = currentBalanceByUserId[userId];
-
-      if (floatingGreaterEqual(makerBalance, maker.amount)) {
-        currentBalanceByUserId[userId] = makerBalance - maker.amount;
-      } else {
-        // Insufficient balance. Cancel maker bet.
-        ordersToCancel.push(maker.bet);
-        continue;
+      if (makerBalance !== undefined) {
+        if (maker.amount > 0) {
+          currentBalanceByUserId[userId] = makerBalance - maker.amount;
+        }
+        const adjustedMakerBalance = currentBalanceByUserId[userId];
+        if (adjustedMakerBalance !== undefined && adjustedMakerBalance <= 0) {
+          // Now they've insufficient balance. Cancel maker bet.
+          ordersToCancel.push(maker.bet);
+        }
       }
+      if (floatingEqual(maker.amount, 0)) continue;
 
       takers.push(taker);
       makers.push(maker);
@@ -443,9 +466,9 @@ export const getBinaryCpmmBetInfo = (
   if (!assertDefined(p)) throw new Error("p is undefined");
 
   const { takers, makers, cpmmState, totalFees, ordersToCancel } = computeFills(
+    { pool, p },
     outcome,
     betAmount,
-    { pool, p },
     limitProb,
     unfilledBets,
     balanceByUserId

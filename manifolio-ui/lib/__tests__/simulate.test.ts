@@ -6,12 +6,12 @@ import {
   calculateNaiveKellyBet,
   getBetRecommendation,
 } from "../calculate";
-import { CpmmMarketModel } from "../market";
 import { PositionModel } from "../probability";
 import { UserModel } from "../user";
 import { v4 as uuidv4 } from "uuid";
 import { LimitBet, binarySearch } from "../vendor/manifold-helpers";
 import { Bet, FullMarket } from "../vendor/manifold-sdk";
+import { CpmmMarketModel } from "../market";
 
 const createDummyUserModel = ({
   balance = 1000,
@@ -52,6 +52,7 @@ const createDummyUserModel = ({
     ...pos,
     contractId: uuidv4(),
     outcome: "YES" as Outcome,
+    type: "BINARY" as const,
   }));
 
   return new UserModel(user, balance, loans, manifoldPositions);
