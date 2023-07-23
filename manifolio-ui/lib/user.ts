@@ -69,8 +69,7 @@ export class UserModel {
     this.illiquidPmfCache = {
       all: computePayoutDistribution(
         positions,
-        positions.length > 12 ? "monte-carlo" : "cartesian",
-        50_000
+        positions.length > 12 ? "monte-carlo" : "cartesian"
       ),
     };
   }
@@ -95,8 +94,7 @@ export class UserModel {
     );
     this.illiquidPmfCache[excludingMarketId] = computePayoutDistribution(
       positionsExcludingMarket,
-      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian",
-      50_000
+      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian"
     );
     return this.illiquidPmfCache[excludingMarketId];
   }

@@ -1,6 +1,10 @@
 import seedrandom from "seedrandom";
 import { Outcome, UnivariateFunction } from "./calculate";
 
+const mcSampleSize = process.env.NEXT_PUBLIC_SAMPLE_SIZE
+  ? parseInt(process.env.NEXT_PUBLIC_SAMPLE_SIZE)
+  : 50_000;
+
 /**
  * A probability mass function is a mapping from a payout to the probability of that payout.
  */
@@ -139,7 +143,7 @@ function computePayoutPMFMonteCarlo(
 export function computePayoutDistribution(
   bets: PositionModel[],
   method: "cartesian" | "monte-carlo" = "cartesian",
-  samples = 5000
+  samples = mcSampleSize
 ): Map<number, number> {
   if (method === "monte-carlo") {
     return computePayoutPMFMonteCarlo(bets, samples);
