@@ -15,6 +15,7 @@ import {
 import { Outcome } from "./calculate";
 import { ManifolioError } from "@/components/ErrorMessage";
 import logger from "@/logger";
+import { getCpmmProbability } from "./vendor/manifold-helpers";
 
 let marketsEndpointEnabled = false;
 export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
@@ -173,28 +174,7 @@ const fetchMarketsByIds = async ({
   return markets.filter((market) => market !== undefined) as LiteMarket[];
 };
 
-// TODO to handle other bet types:
-// - Work out characteristics of bets and markets of other types
-//   - YES/NO
-//     - mechanism: cpmm-1
-//     - outcomeType: BINARY
-//   - Multiple choice
-//     - mechanism: cpmm-multi-1
-//     - outcomeType: MULTIPLE_CHOICE
-//   - Free response:
-//     - mechanism: dpm-2
-//     - outcomeType: FREE_RESPONSE
-//   - Numeric:
-//     - mechanism: cpmm-1
-//     - outcomeType: PSEUDO_NUMERIC
-//   - Bounties:
-//     - mechanism: none
-//     - outcomeType: BOUNTIED_QUESTION
-//   - Stock:
-//    - mechanism: cpmm-1
-//    - outcomeType: STONK
-
-const calculateBinaryPositions = (
+const calculateCpmm1Positions = (
   contractsWithNetPositions: Dictionary<{
     contractId: string;
     netYesShares: number;
@@ -203,15 +183,24 @@ const calculateBinaryPositions = (
   }>,
   markets: LiteMarket[]
 ): ManifoldPosition[] => {
+  const outcomeTypes: Record<string, "BINARY" | "NUMERIC" | "STOCK"> = {
+    BINARY: "BINARY",
+    PSEUDO_NUMERIC: "NUMERIC",
+    STONK: "STOCK",
+  };
   return markets
     .map((market) => {
       const bet = contractsWithNetPositions[market.id];
       if (!bet) return undefined;
 
+      if (!market.p) return;
+
+      // Stock markets don't return a probability, but we can calculate it
+      const marketProb =
+        market.probability ?? getCpmmProbability(market.pool, market.p);
+
       const isYesBet = bet.netYesShares > 0;
-      const probability = isYesBet
-        ? market.probability
-        : 1 - market.probability;
+      const probability = isYesBet ? marketProb : 1 - marketProb;
       const payout = Math.abs(bet.netYesShares);
 
       return {
@@ -221,7 +210,7 @@ const calculateBinaryPositions = (
         contractId: market.id,
         outcome: (isYesBet ? "YES" : "NO") as Outcome,
         marketName: market.question,
-        type: "BINARY",
+        type: outcomeTypes[market.outcomeType] ?? "BINARY",
       };
     })
     .filter((pos) => pos !== undefined) as ManifoldPosition[];
@@ -328,20 +317,13 @@ const calculateMultipleChoicePositions = async ({
   return positions;
 };
 
-const calculateFreeResponsePositions = (
-  markets: LiteMarket[]
-): ManifoldPosition[] => {
-  return []; // TODO: Implement the actual logic.
-};
-
-const calculateNumericPositions = (
-  markets: LiteMarket[]
-): ManifoldPosition[] => {
-  return []; // TODO: Implement the actual logic.
-};
-
-const calculateStockPositions = (markets: LiteMarket[]): ManifoldPosition[] => {
-  return []; // TODO: Implement the actual logic.
+const calculateFreeResponsePositions = async (
+  markets: LiteMarket[],
+  bets: Bet[]
+): Promise<ManifoldPosition[]> => {
+  // FIXME I have punted this for now because the dpm-2 payout logic is complicated
+  // see calculateStandardDpmPayout
+  return [];
 };
 
 export const buildUserModel = async (
@@ -448,15 +430,17 @@ export const buildUserModel = async (
   );
 
   // There are 6 types of question filterable at https://manifold.markets/questions:
-  //  - YES/NO
-  //  - Multiple choice
-  //  - Free response
-  //  - Numeric
-  //  - Bounties
-  //  - Stock
+  //  - YES/NO (cpmm-1)
+  //  - Multiple choice (cpmm-multi-1)
+  //  - Free response (dpm-2, not yet implemented)
+  //  - Numeric (cpmm-1)
+  //  - Bounties (not really a market)
+  //  - Stock (cpmm-1)
 
   const openBinaryMarkets = openMarkets.filter(
-    (market) => market.mechanism === "cpmm-1" && market.outcomeType === "BINARY"
+    (market) =>
+      market.mechanism === "cpmm-1" &&
+      ["BINARY", "PSEUDO_NUMERIC", "STONK"].includes(market.outcomeType)
   );
 
   const openMultipleChoiceMarkets = openMarkets.filter(
@@ -478,29 +462,25 @@ export const buildUserModel = async (
     (market) =>
       market.mechanism === "dpm-2" && market.outcomeType === "FREE_RESPONSE"
   );
-
-  const openNumericMarkets = openMarkets.filter(
-    (market) =>
-      market.mechanism === "cpmm-1" && market.outcomeType === "PSEUDO_NUMERIC"
+  // FIXME there may be 100,000s of bets, use a more efficient algorithm
+  const openFreeResponseBets = allBets.filter(
+    (bet) =>
+      bet.outcome &&
+      openFreeResponseMarkets.find((market) => market.id === bet.contractId) !==
+        undefined
   );
 
   // Ignore bounties, they have no bets
 
-  const openStockMarkets = openMarkets.filter(
-    (market) =>
-      market.mechanism === "cpmm-1" &&
-      // FIXME bug in the api library here, "cpmm-multi-1" is not a valid mechanism
-      (market.outcomeType as string) === "STONK"
-  );
-
   const positions = [
-    ...calculateBinaryPositions(contractsWithNetPositions, openBinaryMarkets),
+    ...calculateCpmm1Positions(contractsWithNetPositions, openBinaryMarkets),
     ...(await calculateMultipleChoicePositions({
       bets: openMultipleChoiceBets,
     })),
-    ...calculateFreeResponsePositions(openFreeResponseMarkets),
-    ...calculateNumericPositions(openNumericMarkets),
-    ...calculateStockPositions(openStockMarkets),
+    ...(await calculateFreeResponsePositions(
+      openFreeResponseMarkets,
+      openFreeResponseBets
+    )),
   ];
 
   const uniquePositionMarketIds = [
