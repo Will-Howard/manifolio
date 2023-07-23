@@ -1,6 +1,10 @@
 import seedrandom from "seedrandom";
 import { Outcome, UnivariateFunction } from "./calculate";
 
+const mcSampleSize = process.env.NEXT_PUBLIC_SAMPLE_SIZE
+  ? parseInt(process.env.NEXT_PUBLIC_SAMPLE_SIZE)
+  : 50_000;
+
 /**
  * A probability mass function is a mapping from a payout to the probability of that payout.
  */
@@ -20,7 +24,17 @@ export type PositionModel = {
 
 export type ManifoldPosition = PositionModel & {
   contractId: string;
-  outcome: Outcome;
+  outcome?: Outcome;
+  // This type corresponds to the types of markets you can filter by in https://manifold.markets/questions
+  // , which tend to correspond to a combination of market.mechanism and market.outcomeType (although I'm not
+  // 100% sure I've covered all the cases)
+  type:
+    | "BINARY"
+    | "MULTIPLE_CHOICE"
+    | "FREE_RESPONSE"
+    | "NUMERIC"
+    | "BOUNTY"
+    | "STOCK";
 };
 
 /**
@@ -139,8 +153,11 @@ function computePayoutPMFMonteCarlo(
 export function computePayoutDistribution(
   bets: PositionModel[],
   method: "cartesian" | "monte-carlo" = "cartesian",
-  samples = 5000
+  samples = mcSampleSize
 ): Map<number, number> {
+  // FIXME currently this assumes outcomes of multiple choice and free response markets are independent,
+  // whereas usually they are mutually exclusive
+
   if (method === "monte-carlo") {
     return computePayoutPMFMonteCarlo(bets, samples);
   } else {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
-import type { User } from "@/lib/vendor/manifold-sdk";
+import type { Bet, User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
@@ -109,6 +109,7 @@ interface UserSectionProps {
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
   refetchCounter: number;
+  placedBets: Bet[];
 }
 
 const UserSection: React.FC<UserSectionProps> = ({
@@ -118,6 +119,7 @@ const UserSection: React.FC<UserSectionProps> = ({
   userModel,
   setUserModel,
   refetchCounter,
+  placedBets,
 }: UserSectionProps) => {
   const classes = useStyles();
   const { pushError, clearError } = useErrors();
@@ -126,13 +128,16 @@ const UserSection: React.FC<UserSectionProps> = ({
   const [user, setUser] = useState<User | undefined>(undefined);
   const [numBetsLoaded, setNumBetsLoaded] = useState<number>(0);
 
+  const refetchCounterRef = React.useRef(refetchCounter);
+
   // Fetch the user
   useEffect(() => {
     if (
       !usernameInput ||
       usernameInput.length == 0 ||
       (usernameInput === user?.username &&
-        usernameInput === userModel?.user?.username)
+        usernameInput === userModel?.user?.username &&
+        refetchCounterRef.current === refetchCounter)
     )
       return;
     const parsedUsername =
@@ -162,13 +167,24 @@ const UserSection: React.FC<UserSectionProps> = ({
         user,
         pushError,
         clearError,
-        setNumBetsLoaded
+        setNumBetsLoaded,
+        placedBets
       );
       // TODO return errors from buildUserModel
       setUserModel(userModel);
+      refetchCounterRef.current = refetchCounter;
     };
     void tryFetchUser(parsedUsername);
-  }, [setUserModel, usernameInput, refetchCounter, authedUsername]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    setUserModel,
+    usernameInput,
+    refetchCounter,
+    authedUsername,
+    user?.username,
+    userModel?.user?.username,
+    placedBets,
+  ]);
 
   const userInputStatus = foundUser
     ? "success"

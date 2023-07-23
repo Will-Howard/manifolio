@@ -18,6 +18,7 @@ import classNames from "classnames";
 import { formatInt } from "@/lib/utils";
 import { ManifolioError, useErrors } from "./hooks/useErrors";
 import ErrorMessage from "./ErrorMessage";
+import { Bet } from "@/lib/vendor/manifold-sdk";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -137,6 +138,7 @@ interface CalculatorSectionProps {
   marketModel: CpmmMarketModel | undefined;
   refetchCounter: number;
   setRefetchCounter: React.Dispatch<React.SetStateAction<number>>;
+  setPlacedBets: React.Dispatch<React.SetStateAction<Bet[]>>;
 }
 
 const CalculatorSection: React.FC<CalculatorSectionProps> = ({
@@ -149,6 +151,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   marketModel,
   refetchCounter,
   setRefetchCounter,
+  setPlacedBets,
 }) => {
   const classes = useStyles();
   const { errors } = useErrors();
@@ -164,8 +167,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     "probabilityInput",
     50
   );
-  const [kellyFraction, setKellyFraction] = useLocalStorageState<number>(
-    "kellyFraction",
+  const [safetyFactor, setKellyFraction] = useLocalStorageState<number>(
+    "safetyFactor",
     50
   );
 
@@ -219,10 +222,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      kellyFraction / 100
+      1 - safetyFactor / 100
     );
   }, [
-    kellyFraction,
+    safetyFactor,
     marketModel,
     probabilityInput,
     userModel,
@@ -315,17 +318,24 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       },
       body: JSON.stringify(body),
     });
-    logger.info("Created bet:", res);
+    const createdBet = await res.json();
+    logger.info("Created bet:", createdBet);
 
-    setTimeout(() => {
-      setRefetchCounter((prev) => prev + 1);
-      setRecentlyBet(false);
-    }, 1500);
+    // TODO handle errors here
+    const formattedBet: Bet = {
+      ...createdBet,
+      id: createdBet.betId,
+    };
+
+    setPlacedBets((prev: Bet[]) => [...prev, formattedBet]);
+    setRefetchCounter((prev) => prev + 1);
+    setRecentlyBet(false);
   }, [
     apiKeyInput,
     betAmount,
     betOutcome,
-    marketModel?.market.id,
+    marketModel?.market?.id,
+    setPlacedBets,
     setRefetchCounter,
   ]);
 
@@ -354,13 +364,13 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           className={classes.inputField}
         />
         <InputField
-          label="Kelly fraction (%)"
-          id="kellyFractionInput"
+          label="Safety factor (%)"
+          id="safetyFactorInput"
           type="number"
           step="1"
           min="0"
           max="100"
-          value={kellyFraction}
+          value={safetyFactor}
           onChange={(e) => setKellyFraction(parseFloat(e.target.value))}
           className={classes.inputField}
         />

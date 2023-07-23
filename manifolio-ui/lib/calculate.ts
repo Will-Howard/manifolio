@@ -351,6 +351,7 @@ export function calculateFullKellyBet({
   userModel: UserModel;
 }): BetRecommendation & { marketDeferralProb: number } {
   const currentPosition = userModel.getPosition(marketModel.market.id);
+
   const yesShares =
     currentPosition?.outcome === "YES" ? currentPosition.payout : 0;
   const noShares =
@@ -358,19 +359,10 @@ export function calculateFullKellyBet({
 
   const balance = userModel.balance;
   const balanceAfterLoans = userModel.balanceAfterLoans;
-  const illiquidEV = userModel.illiquidEV;
-  const relativeIlliquidEV = illiquidEV / balanceAfterLoans;
 
   // YES and NO shares relative to the balance after loans
   const sYes = yesShares / balanceAfterLoans;
   const sNo = noShares / balanceAfterLoans;
-
-  logger.debug("Available:", {
-    balance,
-    balanceAfterLoans,
-    illiquidEV,
-    relativeIlliquidEV,
-  });
 
   const illiquidPmf = userModel.getIlliquidPmf(currentPosition?.contractId);
 
@@ -388,6 +380,21 @@ export function calculateFullKellyBet({
     estimatedProb * deferenceFactor +
     (1 - deferenceFactor) * marketDeferralProb;
   const qYes = 1 - pYes;
+
+  const currentPositionEV =
+    (currentPosition?.payout ?? 0) * (currentPosition?.probability ?? 0);
+  const illiquidEV = userModel.illiquidEV - currentPositionEV;
+  const relativeIlliquidEV = illiquidEV / balanceAfterLoans;
+
+  const pmfEV = integrateOverPmf((payout) => payout, illiquidPmf);
+
+  logger.debug("Available:", {
+    balance,
+    balanceAfterLoans,
+    illiquidEV,
+    pmfEV,
+    relativeIlliquidEV,
+  });
 
   const { amount: naiveKellyAmount } = calculateNaiveKellyBetWithPosition({
     marketProb: currentMarketProb,
@@ -523,7 +530,7 @@ export function calculateFullKellyBet({
       const G =
         dfNodf *
         ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
-          (1 + I + sYes + fNo * bNo - fYes));
+          (1 + I + sNo + fNo * bNo - fYes));
 
       const result = A + B + C + E + F + G;
       return result;

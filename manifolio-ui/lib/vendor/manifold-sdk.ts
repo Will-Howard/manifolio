@@ -166,6 +166,7 @@ export interface User {
 }
 
 export interface Bet extends Partial<LimitProps> {
+  answerId?: string;
   id: string;
   userId: string;
   contractId: string;

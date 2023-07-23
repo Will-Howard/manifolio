@@ -10,10 +10,12 @@ import {
   type Bet,
   type User,
   LiteMarket,
+  FullMarket,
 } from "./vendor/manifold-sdk";
 import { Outcome } from "./calculate";
 import { ManifolioError } from "@/components/ErrorMessage";
 import logger from "@/logger";
+import { getCpmmProbability } from "./vendor/manifold-helpers";
 
 let marketsEndpointEnabled = false;
 export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
@@ -69,8 +71,7 @@ export class UserModel {
     this.illiquidPmfCache = {
       all: computePayoutDistribution(
         positions,
-        positions.length > 12 ? "monte-carlo" : "cartesian",
-        50_000
+        positions.length > 12 ? "monte-carlo" : "cartesian"
       ),
     };
   }
@@ -95,8 +96,7 @@ export class UserModel {
     );
     this.illiquidPmfCache[excludingMarketId] = computePayoutDistribution(
       positionsExcludingMarket,
-      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian",
-      50_000
+      positionsExcludingMarket.length > 12 ? "monte-carlo" : "cartesian"
     );
     return this.illiquidPmfCache[excludingMarketId];
   }
@@ -119,11 +119,220 @@ export const fetchUser = async (
   }
 };
 
+const fetchMarketsByIds = async ({
+  ids,
+  api,
+  pushError = () => {},
+  clearError = () => {},
+  oneByOne = false,
+}: {
+  ids: string[];
+  api: Manifold;
+  pushError?: (error: ManifolioError) => void;
+  clearError?: (key: string) => void;
+  oneByOne?: boolean;
+}): Promise<LiteMarket[]> => {
+  if (!oneByOne && isMarketsEndpointEnabled()) {
+    const marketChunks = await Promise.all(
+      chunk(ids, 500).map(async (ids) => {
+        const markets = await api.getMarkets({ ids, limit: 500 });
+        return markets;
+      })
+    );
+    return marketChunks.flat();
+  }
+
+  // Fall back to getting markets one by one
+  logger.warn(
+    `Falling back to getting markets one by one. Fetching ${ids.length} markets.`
+  );
+  const truncatedIds = ids.slice(0, 100);
+
+  if (truncatedIds.length < ids.length) {
+    pushError({
+      key: "positionsTruncated",
+      code: "UNKNOWN_ERROR",
+      message: `Only ${truncatedIds.length} of ${ids.length} positions fetch to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
+      severity: "warning",
+    });
+  } else {
+    clearError("positionsTruncated");
+  }
+
+  const markets = await Promise.all(
+    truncatedIds.map(async (id) => {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const market = await api.getMarket({ id });
+          return market;
+        } catch (e) {
+          logger.warn(`Failed to fetch market ${id} on attempt ${i + 1}`);
+        }
+      }
+    })
+  );
+  return markets.filter((market) => market !== undefined) as LiteMarket[];
+};
+
+const calculateCpmm1Positions = (
+  contractsWithNetPositions: Dictionary<{
+    contractId: string;
+    netYesShares: number;
+    netLoan: number;
+    evEstimate: number;
+  }>,
+  markets: LiteMarket[]
+): ManifoldPosition[] => {
+  const outcomeTypes: Record<string, "BINARY" | "NUMERIC" | "STOCK"> = {
+    BINARY: "BINARY",
+    PSEUDO_NUMERIC: "NUMERIC",
+    STONK: "STOCK",
+  };
+  return markets
+    .map((market) => {
+      const bet = contractsWithNetPositions[market.id];
+      if (!bet) return undefined;
+
+      if (!market.p) return;
+
+      // Stock markets don't return a probability, but we can calculate it
+      const marketProb =
+        market.probability ?? getCpmmProbability(market.pool, market.p);
+
+      const isYesBet = bet.netYesShares > 0;
+      const probability = isYesBet ? marketProb : 1 - marketProb;
+      const payout = Math.abs(bet.netYesShares);
+
+      return {
+        probability,
+        payout,
+        loan: bet.netLoan,
+        contractId: market.id,
+        outcome: (isYesBet ? "YES" : "NO") as Outcome,
+        marketName: market.question,
+        type: outcomeTypes[market.outcomeType] ?? "BINARY",
+      };
+    })
+    .filter((pos) => pos !== undefined) as ManifoldPosition[];
+};
+
+const calculateMultipleChoicePositions = async ({
+  bets,
+}: {
+  bets: Bet[];
+}): Promise<ManifoldPosition[]> => {
+  // - Group markets by answerId
+  // - Calculate netYesShares by answer
+  // - Fetch the full markets for those with non-zero netYesShares (FullMarket is required to get the answer probabilities)
+  // - Calculate the positions for each answer
+
+  const cleanedBets = bets.filter((bet) => bet.answerId !== undefined);
+  const betsByAnswer = groupBy(
+    cleanedBets,
+    (bet) => `${bet.contractId}_${bet.answerId}`
+  );
+
+  const answersWithNetPositions: Dictionary<{
+    contractId: string;
+    answerId: string;
+    netYesShares: number;
+    netLoan: number;
+    evEstimate: number;
+  }> = {};
+
+  for (const key in betsByAnswer) {
+    const bets = betsByAnswer[key].sort(
+      (a, b) => b.createdTime - a.createdTime
+    );
+    const mostRecentProb = bets[0].probAfter;
+
+    const netYesShares = bets.reduce((acc, bet) => {
+      if (bet.outcome === "YES") {
+        return acc + bet.shares;
+      } else {
+        return acc - bet.shares;
+      }
+    }, 0);
+    const netLoan = bets.reduce((acc, bet) => acc + (bet.loanAmount ?? 0), 0);
+
+    if (Math.abs(netYesShares) >= 1) {
+      answersWithNetPositions[key] = {
+        contractId: bets[0].contractId,
+        answerId: bets[0].answerId as string,
+        netYesShares: netYesShares,
+        netLoan,
+        // this is really just here for information architecture reasons, it's not necessary atm
+        evEstimate: mostRecentProb * netYesShares,
+      };
+    }
+  }
+
+  const openMarketIds = [
+    ...new Set(
+      Object.values(answersWithNetPositions).map(
+        (bet) => bet.contractId as string
+      )
+    ),
+  ];
+
+  if (openMarketIds.length === 0) return [];
+
+  const fullMarkets = (await fetchMarketsByIds({
+    ids: openMarketIds,
+    api: getManifoldApi(),
+    oneByOne: true,
+  })) as FullMarket[];
+  const fullMarketById = groupBy(fullMarkets, (market) => market.id);
+
+  const positions = Object.values(answersWithNetPositions)
+    .map((bet) => {
+      const market = fullMarketById[bet.contractId][0];
+
+      if (!market || !market.answers) return undefined;
+
+      const answer = market.answers.find(
+        (answer) => answer.id === bet.answerId
+      );
+
+      if (!answer) return undefined;
+
+      const isYesBet = bet.netYesShares > 0;
+      const probability = isYesBet
+        ? answer.probability
+        : 1 - answer.probability;
+      const payout = Math.abs(bet.netYesShares);
+
+      return {
+        probability,
+        payout,
+        loan: bet.netLoan,
+        contractId: market.id,
+        outcome: (isYesBet ? "YES" : "NO") as Outcome,
+        marketName: market.question,
+        type: "MULTIPLE_CHOICE",
+      };
+    })
+    .filter((pos) => pos !== undefined) as ManifoldPosition[];
+
+  return positions;
+};
+
+const calculateFreeResponsePositions = async (
+  markets: LiteMarket[],
+  bets: Bet[]
+): Promise<ManifoldPosition[]> => {
+  // FIXME I have punted this for now because the dpm-2 payout logic is complicated, and I think there
+  // isn't enough info in the Market object to calculate it. See calculateStandardDpmPayout for how it is
+  // calculated
+  return [];
+};
+
 export const buildUserModel = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
-  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {}
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
+  extraBets: Bet[] = []
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
@@ -131,39 +340,45 @@ export const buildUserModel = async (
 
   // Fetch bets with pagination
   // TODO combine with market.ts
-  const allBets: Bet[] = [];
+  const fetchedBets: Bet[] = [];
   let before: string | undefined = undefined;
 
   setNumBetsLoaded(0);
   while (true) {
     const bets = await api.getBets({ username, before, limit: 1000 });
-    allBets.push(...bets);
-    setNumBetsLoaded(allBets.length);
+    fetchedBets.push(...bets);
+    setNumBetsLoaded(fetchedBets.length);
 
     // Break if:
     // - The latest page of bets is less than 1000 (indicating that there are no more pages)
     // - There are no bets at all
     // - There are no bets in the latest page (if the last page happened to be exactly 1000 bets)
-    if (bets.length < 1000 || allBets.length === 0 || allBets.length === 0) {
+    if (
+      bets.length < 1000 ||
+      fetchedBets.length === 0 ||
+      fetchedBets.length === 0
+    ) {
       break;
     }
 
-    before = allBets[allBets.length - 1].id;
+    before = fetchedBets[fetchedBets.length - 1].id;
   }
+
+  const allBets = [...new Set([...fetchedBets, ...extraBets])];
 
   // Fetch all the users bets, then construct positions from them
   // Note 1: partially filled bets still have the correct "amount" and "shares" fields
-  // Note 2: including cancelled bets is also fine, this just refers to whether _new_ fills are cancelled
-  const cpmmBets = allBets.filter(
+  // Note 2: including cancelled bets is also fine. This just refers to whether _new_ fills are cancelled, which does not affect the amount field
+  const probablyBinaryBets = allBets.filter(
     (bet) => bet.isFilled !== undefined || bet.amount < 0
   );
-  // TODO handle these in some way
-  // const nonCpmmBets = allBets.filter(
-  //   (bet) => bet.isFilled === undefined && bet.amount > 0
-  // );
-  const betsByMarket = groupBy(cpmmBets, (bet) => bet.contractId);
+  const otherBets = allBets.filter(
+    (bet) => bet.isFilled === undefined && bet.amount > 0
+  );
 
-  const cleanedContractsBetOn: Dictionary<{
+  const betsByMarket = groupBy(probablyBinaryBets, (bet) => bet.contractId);
+
+  const contractsWithNetPositions: Dictionary<{
     contractId: string;
     netYesShares: number;
     netLoan: number;
@@ -186,7 +401,7 @@ export const buildUserModel = async (
     const netLoan = bets.reduce((acc, bet) => acc + (bet.loanAmount ?? 0), 0);
 
     if (Math.abs(netYesShares) >= 1) {
-      cleanedContractsBetOn[marketId] = {
+      contractsWithNetPositions[marketId] = {
         contractId: marketId,
         netYesShares: netYesShares,
         netLoan,
@@ -196,104 +411,97 @@ export const buildUserModel = async (
     }
   }
 
-  const allMarketIds = Object.keys(cleanedContractsBetOn);
+  // Order by magnitiude of net EV first, then other bets where we don't know the EV. This is in case we have to truncate the list
+  const contractsWithNetPositionIds = Object.values(contractsWithNetPositions)
+    .sort(
+      (a, b) =>
+        Math.abs(b.evEstimate - b.netLoan) - Math.abs(a.evEstimate - a.netLoan)
+    )
+    .map((bet) => bet.contractId);
+  const allMarketIds = [
+    ...contractsWithNetPositionIds,
+    ...new Set(otherBets.map((bet) => bet.contractId)),
+  ];
 
-  const fetchMarkets = async (ids: string[]): Promise<LiteMarket[]> => {
-    if (isMarketsEndpointEnabled()) {
-      const marketChunks = await Promise.all(
-        chunk(ids, 500).map(async (ids) => {
-          const markets = await api.getMarkets({ ids, limit: 500 });
-          return markets;
-        })
-      );
-      return marketChunks.flat();
-    }
-
-    // Fall back to getting markets one by one
-    logger.warn(
-      `Falling back to getting markets one by one. Fetching ${ids.length} markets.`
-    );
-
-    // Sort the ids by abs(evEstimate - netLoan) descending, so that we fetch the most important ones first/
-    // Then take the first 100 to avoid overfetching
-
-    const allBets = Object.values(cleanedContractsBetOn);
-    const sortedIds = allBets
-      .sort(
-        (a, b) =>
-          Math.abs(b.evEstimate - b.netLoan) -
-          Math.abs(a.evEstimate - a.netLoan)
-      )
-      .map((bet) => bet.contractId);
-    const truncatedIds = sortedIds.slice(0, 100);
-
-    if (truncatedIds.length < ids.length) {
-      pushError({
-        key: "positionsTruncated",
-        code: "UNKNOWN_ERROR",
-        message: `Only ${truncatedIds.length} of ${ids.length} positions could be loaded. This will mean that "Portfolio value" and "Total loans" may be incorrect. This is due to a limitation of the manifold API and will be fixed soon`,
-        severity: "warning",
-      });
-    } else {
-      clearError("positionsTruncated");
-    }
-
-    const markets = await Promise.all(
-      truncatedIds.map(async (id) => {
-        for (let i = 0; i < 5; i++) {
-          try {
-            const market = await api.getMarket({ id });
-            return market;
-          } catch (e) {
-            logger.warn(`Failed to fetch market ${id} on attempt ${i + 1}`);
-          }
-        }
-      })
-    );
-    return markets.filter((market) => market !== undefined) as LiteMarket[];
-  };
-
-  const markets = await fetchMarkets(allMarketIds);
+  const markets = await fetchMarketsByIds({
+    ids: allMarketIds,
+    api,
+    pushError,
+    clearError,
+  });
 
   const openMarkets = markets.filter(
     (market) =>
       market.isResolved === false &&
       market.closeTime &&
-      market.closeTime > Date.now() &&
-      // FIXME this should have been handled above, check again + handle dpm-2 markets (at least in EV)
-      market.mechanism === "cpmm-1"
+      market.closeTime > Date.now()
   );
 
-  const positions = openMarkets
-    .map((market) => {
-      const bet = cleanedContractsBetOn[market.id];
-      if (!bet) return undefined;
+  // There are 6 types of question filterable at https://manifold.markets/questions:
+  //  - YES/NO (cpmm-1)
+  //  - Multiple choice (cpmm-multi-1)
+  //  - Free response (dpm-2, not yet implemented)
+  //  - Numeric (cpmm-1)
+  //  - Bounties (not really a market)
+  //  - Stock (cpmm-1)
 
-      const isYesBet = bet.netYesShares > 0;
+  const openBinaryMarkets = openMarkets.filter(
+    (market) =>
+      market.mechanism === "cpmm-1" &&
+      ["BINARY", "PSEUDO_NUMERIC", "STONK"].includes(market.outcomeType)
+  );
 
-      const probability = isYesBet
-        ? market.probability
-        : 1 - market.probability;
-      const payout = Math.abs(bet.netYesShares);
+  const openMultipleChoiceMarkets = openMarkets.filter(
+    (market) =>
+      // FIXME bug in the api library here, "cpmm-multi-1" is not a valid mechanism
+      (market.mechanism as string) === "cpmm-multi-1" &&
+      market.outcomeType === "MULTIPLE_CHOICE"
+  );
+  // FIXME there may be 100,000s of bets, use a more efficient algorithm
+  const openMultipleChoiceBets = allBets.filter(
+    (bet) =>
+      bet.answerId &&
+      openMultipleChoiceMarkets.find(
+        (market) => market.id === bet.contractId
+      ) !== undefined
+  );
 
-      return {
-        probability,
-        payout,
-        loan: bet.netLoan,
-        contractId: market.id,
-        outcome: (isYesBet ? "YES" : "NO") as Outcome,
-        marketName: market.question,
-        // ev: probability * payout, // DEBUG
-      };
-    })
-    .filter((pos) => pos !== undefined) as ManifoldPosition[];
+  const openFreeResponseMarkets = openMarkets.filter(
+    (market) =>
+      market.mechanism === "dpm-2" && market.outcomeType === "FREE_RESPONSE"
+  );
+  // FIXME there may be 100,000s of bets, use a more efficient algorithm
+  const openFreeResponseBets = allBets.filter(
+    (bet) =>
+      bet.outcome &&
+      openFreeResponseMarkets.find((market) => market.id === bet.contractId) !==
+        undefined
+  );
 
-  if (positions.length < openMarkets.length) {
-    const discrepancy = openMarkets.length - positions.length;
+  // Ignore bounties, they have no bets
+
+  const positions = [
+    ...calculateCpmm1Positions(contractsWithNetPositions, openBinaryMarkets),
+    ...(await calculateMultipleChoicePositions({
+      bets: openMultipleChoiceBets,
+    })),
+    ...(await calculateFreeResponsePositions(
+      openFreeResponseMarkets,
+      openFreeResponseBets
+    )),
+  ];
+
+  const uniquePositionMarketIds = [
+    ...new Set(positions.map((pos) => pos.contractId)),
+  ];
+  if (uniquePositionMarketIds.length < openMarkets.length) {
+    const discrepancy = openMarkets.length - uniquePositionMarketIds.length;
     pushError({
       key: "userPositionMismatch",
       code: "UNKNOWN_ERROR",
-      message: `${discrepancy} positions for user "${username}" could not be loaded. This will mean that "Portfolio value" and "Total loans" may be incorrect.`,
+      message: `${discrepancy} position${
+        discrepancy > 1 ? "s" : ""
+      } for user "${username}" could not be loaded. This will probably cause an under-estimate of portfolio value and hence a bet recommendation that is too low, although this is not guaranteed if you have a lot of loans.`,
       severity: "warning",
     });
   } else {
