@@ -321,6 +321,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     const createdBet = await res.json();
     logger.info("Created bet:", createdBet);
 
+    // TODO handle errors here
     const formattedBet: Bet = {
       ...createdBet,
       id: createdBet.betId,
