@@ -321,8 +321,9 @@ const calculateFreeResponsePositions = async (
   markets: LiteMarket[],
   bets: Bet[]
 ): Promise<ManifoldPosition[]> => {
-  // FIXME I have punted this for now because the dpm-2 payout logic is complicated
-  // see calculateStandardDpmPayout
+  // FIXME I have punted this for now because the dpm-2 payout logic is complicated, and I think there
+  // isn't enough info in the Market object to calculate it. See calculateStandardDpmPayout for how it is
+  // calculated
   return [];
 };
 
@@ -330,7 +331,8 @@ export const buildUserModel = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
-  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {}
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
+  extraBets: Bet[] = []
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
@@ -338,25 +340,31 @@ export const buildUserModel = async (
 
   // Fetch bets with pagination
   // TODO combine with market.ts
-  const allBets: Bet[] = [];
+  const fetchedBets: Bet[] = [];
   let before: string | undefined = undefined;
 
   setNumBetsLoaded(0);
   while (true) {
     const bets = await api.getBets({ username, before, limit: 1000 });
-    allBets.push(...bets);
-    setNumBetsLoaded(allBets.length);
+    fetchedBets.push(...bets);
+    setNumBetsLoaded(fetchedBets.length);
 
     // Break if:
     // - The latest page of bets is less than 1000 (indicating that there are no more pages)
     // - There are no bets at all
     // - There are no bets in the latest page (if the last page happened to be exactly 1000 bets)
-    if (bets.length < 1000 || allBets.length === 0 || allBets.length === 0) {
+    if (
+      bets.length < 1000 ||
+      fetchedBets.length === 0 ||
+      fetchedBets.length === 0
+    ) {
       break;
     }
 
-    before = allBets[allBets.length - 1].id;
+    before = fetchedBets[fetchedBets.length - 1].id;
   }
+
+  const allBets = [...new Set([...fetchedBets, ...extraBets])];
 
   // Fetch all the users bets, then construct positions from them
   // Note 1: partially filled bets still have the correct "amount" and "shares" fields

@@ -5,6 +5,7 @@ import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
+import { Bet } from "@/lib/vendor/manifold-sdk";
 import { Theme, petrona } from "@/styles/theme";
 import classNames from "classnames";
 import Head from "next/head";
@@ -74,6 +75,7 @@ export default function Home() {
   );
 
   const [refetchCounter, setRefetchCounter] = useState(0);
+  const [placedBets, setPlacedBets] = useState<Bet[]>([]);
 
   return (
     <>
@@ -110,6 +112,7 @@ export default function Home() {
               userModel={userModel}
               setUserModel={setUserModel}
               refetchCounter={refetchCounter}
+              placedBets={placedBets}
             />
             <hr className={classes.hr} />
             <MarketSection
@@ -131,6 +134,7 @@ export default function Home() {
               marketModel={marketModel}
               refetchCounter={refetchCounter}
               setRefetchCounter={setRefetchCounter}
+              setPlacedBets={setPlacedBets}
             />
           </div>
         </main>
