@@ -135,11 +135,11 @@ const MarketSection: React.FC<MarketSectionProps> = ({
       clearError("marketClosed");
     }
 
-    if (market.mechanism !== "cpmm-1") {
+    if (market.mechanism !== "cpmm-1" || market.outcomeType !== "BINARY") {
       pushError({
         key: "marketNotCpmm",
         code: "MARKET_NOT_CPMM",
-        message: "Only CPMM markets are suported.",
+        message: "Only YES/NO markets are supported.",
         severity: "error",
       });
       error = true;

@@ -24,7 +24,17 @@ export type PositionModel = {
 
 export type ManifoldPosition = PositionModel & {
   contractId: string;
-  outcome: Outcome;
+  outcome?: Outcome;
+  // This type corresponds to the types of markets you can filter by in https://manifold.markets/questions
+  // , which tend to correspond to a combination of market.mechanism and market.outcomeType (although I'm not
+  // 100% sure I've covered all the cases)
+  type:
+    | "BINARY"
+    | "MULTIPLE_CHOICE"
+    | "FREE_RESPONSE"
+    | "NUMERIC"
+    | "BOUNTY"
+    | "STOCK";
 };
 
 /**
@@ -145,6 +155,9 @@ export function computePayoutDistribution(
   method: "cartesian" | "monte-carlo" = "cartesian",
   samples = mcSampleSize
 ): Map<number, number> {
+  // FIXME currently this assumes outcomes of multiple choice and free response markets are independent,
+  // whereas usually they are mutually exclusive
+
   if (method === "monte-carlo") {
     return computePayoutPMFMonteCarlo(bets, samples);
   } else {
