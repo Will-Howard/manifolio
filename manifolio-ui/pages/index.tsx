@@ -3,13 +3,14 @@ import MarketSection from "@/components/MarketSection";
 import UserSection from "@/components/UserSection";
 import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
+import { getSupabaseClient } from "@/lib/manifold-supabase-api";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
 import { Bet } from "@/lib/vendor/manifold-sdk";
 import { Theme, petrona } from "@/styles/theme";
 import classNames from "classnames";
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createUseStyles } from "react-jss";
 
 const COLUMN_MAX_WIDTH = "620px";

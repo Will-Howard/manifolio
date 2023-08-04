@@ -146,7 +146,7 @@ const fetchMarketsByIds = async ({
   logger.warn(
     `Falling back to getting markets one by one. Fetching ${ids.length} markets.`
   );
-  const truncatedIds = ids.slice(0, 100);
+  const truncatedIds = ids.slice(0, 10);
 
   if (truncatedIds.length < ids.length) {
     pushError({
