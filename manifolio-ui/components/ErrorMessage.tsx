@@ -1,12 +1,10 @@
 import React from "react";
 import { createUseStyles } from "react-jss";
-import { ManifolioErrorCode } from "./hooks/useErrors";
 import classNames from "classnames";
 import WarningIcon from "./icons/WarningIcon";
 
 export type ManifolioError = {
   key: string;
-  code: ManifolioErrorCode;
   message: string;
   severity: "error" | "warning";
 };

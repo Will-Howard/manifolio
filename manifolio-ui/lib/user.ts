@@ -44,7 +44,6 @@ export class UserModel {
   user: User;
   balance: number;
   loans: number;
-  balanceAfterLoans: number;
   positions: ManifoldPosition[];
   illiquidEV: number;
   portfolioEV: number;
@@ -60,13 +59,12 @@ export class UserModel {
     this.balance = balance;
     this.loans = loans;
     this.positions = positions;
-    this.balanceAfterLoans = balance - loans;
     this.illiquidEV = positions.reduce(
       (acc, position) =>
         acc + (position.probability ?? 0) * (position.payout ?? 0),
       0
     );
-    this.portfolioEV = this.balanceAfterLoans + this.illiquidEV;
+    this.portfolioEV = this.balance - this.loans + this.illiquidEV;
 
     // First calculate the PMF _not_ excluding any markets, for the case where they
     // bet on something they haven't bet on before
@@ -153,7 +151,6 @@ const fetchMarketsByIds = async ({
   if (truncatedIds.length < ids.length) {
     pushError({
       key: "positionsTruncated",
-      code: "UNKNOWN_ERROR",
       message: `Only ${truncatedIds.length} of ${ids.length} positions fetched to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
       severity: "warning",
     });
@@ -631,7 +628,6 @@ const buildUserModelInnerV0Api = async (
     const discrepancy = openMarkets.length - uniquePositionMarketIds.length;
     pushError({
       key: "userPositionMismatch",
-      code: "UNKNOWN_ERROR",
       message: `${discrepancy} position${
         discrepancy > 1 ? "s" : ""
       } for user "${username}" could not be loaded. This will probably cause an under-estimate of portfolio value and hence a bet recommendation that is too low, although this is not guaranteed if you have a lot of loans.`,
@@ -672,7 +668,6 @@ export const buildUserModel = async (
     logger.error(`Error building user model for ${manifoldUser.username}`, e);
     pushError({
       key: "userModelError",
-      code: "UNKNOWN_ERROR",
       message: `Error building user model for ${manifoldUser.username}`,
       severity: "error",
     });

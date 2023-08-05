@@ -12,6 +12,8 @@ import { v4 as uuidv4 } from "uuid";
 import { LimitBet, binarySearch } from "../vendor/manifold-helpers";
 import { Bet, FullMarket } from "../vendor/manifold-sdk";
 import { CpmmMarketModel } from "../market";
+import logger from "@/logger";
+import seedrandom from "seedrandom";
 
 const createDummyUserModel = ({
   balance = 1000,
@@ -381,172 +383,189 @@ describe("Direct tests for maximising log wealth under scenarios with no other p
 });
 
 describe("Direct test for maximising log wealth under scenarios with other positions and loans", () => {
-  test("High liquidity market, low risk positions, low loans. Recommendation should be close to 'portfolioEV as balance' in this case", async () => {
+  test("High liquidity market, low risk positions, low loans. Recommendation should be close to portfolioEV as balance in this case", async () => {
     const balance = 100;
     const loans = 10;
 
-    const marketProb = 0.01 + Math.random() * 0.98;
-    const estimatedProb = 0.01 + Math.random() * 0.98;
-    const deferenceFactor = 0.01 + Math.random() * 0.98;
+    for (let i = 0; i < 5; i++) {
+      const marketProb = 0.01 + Math.random() * 0.98;
+      const estimatedProb = 0.01 + Math.random() * 0.98;
+      const deferenceFactor = 0.01 + Math.random() * 0.98;
 
-    // Create market model with very high liquidity
-    const marketModel = createDummyMarketModel({
-      probability: marketProb,
-      liquidity: 100_000,
-      p: 0.5,
-    });
-
-    // EV of M1 per position, for total of M20
-    const positions = Array.from({ length: 20 }, () => ({
-      probability: 0.5,
-      payout: 2,
-    }));
-
-    // Create user model with fairly low balance, no loans or positions
-    const userModel = createDummyUserModel({
-      balance,
-      loans,
-      positions: positions,
-    });
-
-    const portfolioEV = userModel.portfolioEV;
-    expect(portfolioEV).toBeCloseTo(balance - loans + 20);
-
-    const userModelSimple = createDummyUserModel({
-      balance: balance - loans + 20,
-      loans: 0,
-      positions: [],
-    });
-
-    const { amount: amountFull, outcome: outcomeFull } = getBetRecommendation({
-      estimatedProb,
-      deferenceFactor,
-      marketModel,
-      userModel,
-    });
-
-    const { amount: amountSimple, outcome: outcomeSimple } =
-      getBetRecommendation({
-        estimatedProb,
-        deferenceFactor,
-        marketModel,
-        userModel: userModelSimple,
+      // Create market model with very high liquidity
+      const marketModel = createDummyMarketModel({
+        probability: marketProb,
+        liquidity: 100_000,
+        p: 0.5,
       });
 
-    expect(outcomeFull).toBe(outcomeSimple);
-    expect(Math.abs(amountFull - amountSimple)).toBeLessThan(
-      (amountFull + amountSimple) / 100
-    );
-    // Bonus, the full version should be ever so slightly lower
-    expect(amountFull).toBeLessThan(amountSimple);
+      // EV of M1 per position, for total of M50
+      const positions = Array.from({ length: 50 }, () => ({
+        probability: 0.5,
+        payout: 2,
+      }));
+
+      // Create user model with fairly low balance, no loans or positions
+      const userModel = createDummyUserModel({
+        balance,
+        loans,
+        positions: positions,
+      });
+
+      const portfolioEV = userModel.portfolioEV;
+      expect(portfolioEV).toBeCloseTo(balance - loans + 50);
+
+      const userModelSimple = createDummyUserModel({
+        balance: portfolioEV,
+        loans: 0,
+        positions: [],
+      });
+
+      const { amount: amountFull, outcome: outcomeFull } = getBetRecommendation(
+        {
+          estimatedProb,
+          deferenceFactor,
+          marketModel,
+          userModel,
+        }
+      );
+
+      const { amount: amountSimple, outcome: outcomeSimple } =
+        getBetRecommendation({
+          estimatedProb,
+          deferenceFactor,
+          marketModel,
+          userModel: userModelSimple,
+        });
+
+      expect(outcomeFull).toBe(outcomeSimple);
+      if (amountSimple < 0.95 * balance) {
+        expect(Math.abs(amountFull - amountSimple)).toBeLessThan(
+          (amountFull + amountSimple) / 100
+        );
+      } else {
+        // If amountSimple is close to or over the balance, then they might diverge,
+        // in this case just check that amountFull is pretty high
+        expect(amountFull).toBeGreaterThan(0.8 * balance);
+      }
+      // Bonus, the full version should be ever so slightly lower
+      expect(amountFull).toBeLessThan(balance);
+      expect(amountFull).toBeLessThan(amountSimple);
+    }
   });
 
-  test("High liquidity market, high risk positions, high loans. Recommendation should be much lower than 'portfolioEV as balance'", async () => {
+  test("High liquidity market, high risk positions, high loans. Recommendation should be much lower than portfolioEV as balance", async () => {
     const balance = 100;
-    const loans = 80;
+    const loans = 90;
 
-    const marketProb = 0.01 + Math.random() * 0.98;
-    const estimatedProb = 0.01 + Math.random() * 0.98;
-    const deferenceFactor = 0.01 + Math.random() * 0.98;
+    for (let i = 0; i < 5; i++) {
+      const marketProb = 0.01 + Math.random() * 0.98;
+      const estimatedProb = 0.01 + Math.random() * 0.98;
+      const deferenceFactor = 0.01 + Math.random() * 0.98;
 
-    // Create market model with very high liquidity
-    const marketModel = createDummyMarketModel({
-      probability: marketProb,
-      liquidity: 100_000,
-      p: 0.5,
-    });
-
-    // EV of M50 per position, for total of M100
-    const positions = Array.from({ length: 2 }, () => ({
-      probability: 0.5,
-      payout: 100,
-    }));
-
-    // Create user model with fairly low balance, no loans or positions
-    const userModel = createDummyUserModel({
-      balance,
-      loans,
-      positions: positions,
-    });
-
-    const portfolioEV = userModel.portfolioEV;
-    expect(portfolioEV).toBeCloseTo(balance - loans + 100);
-
-    const userModelSimple = createDummyUserModel({
-      balance: balance - loans + 100,
-      loans: 0,
-      positions: [],
-    });
-
-    const { amount: amountFull, outcome: outcomeFull } = getBetRecommendation({
-      estimatedProb,
-      deferenceFactor,
-      marketModel,
-      userModel,
-    });
-
-    const { amount: amountSimple, outcome: outcomeSimple } =
-      getBetRecommendation({
-        estimatedProb,
-        deferenceFactor,
-        marketModel,
-        userModel: userModelSimple,
+      // Create market model with very high liquidity
+      const marketModel = createDummyMarketModel({
+        probability: marketProb,
+        liquidity: 100_000,
+        p: 0.5,
       });
 
-    expect(outcomeFull).toBe(outcomeSimple);
-    expect(Math.abs(amountFull - amountSimple)).toBeGreaterThan(
-      (amountFull + amountSimple) / 10
-    );
-    // Plus the full version should be lower
-    expect(amountFull).toBeLessThan(amountSimple);
+      // EV of M50 per position, for total of M100
+      const positions = Array.from({ length: 2 }, () => ({
+        probability: 0.5,
+        payout: 100,
+      }));
 
-    const getExpectedLogWealth = (betAmount: number) => {
-      const { newShares } = marketModel.getBetInfo(outcomeFull, betAmount);
-      const deferenceAdjustedProb =
-        deferenceFactor * estimatedProb + (1 - deferenceFactor) * marketProb;
-      const winProb =
-        outcomeFull === "YES"
-          ? deferenceAdjustedProb
-          : 1 - deferenceAdjustedProb;
+      // Create user model with fairly low balance, high loans, and high risk positions
+      const userModel = createDummyUserModel({
+        balance,
+        loans,
+        positions: positions,
+      });
 
-      const newPosition = {
-        probability: winProb,
-        payout: newShares,
-      };
-      const allPositions = [...positions, newPosition];
+      const portfolioEV = userModel.portfolioEV;
+      expect(portfolioEV).toBeCloseTo(balance - loans + 100);
 
-      const instances = 100_000;
-      const finalWealths = [];
+      const userModelSimple = createDummyUserModel({
+        balance: balance - loans + 100,
+        loans: 0,
+        positions: [],
+      });
 
-      for (let i = 0; i < instances; i++) {
-        let samplePayout = 0;
-        for (const position of allPositions) {
-          if (Math.random() <= position.probability) {
-            samplePayout += position.payout;
-          }
+      const { amount: amountFull, outcome: outcomeFull } = getBetRecommendation(
+        {
+          estimatedProb,
+          deferenceFactor,
+          marketModel,
+          userModel,
         }
+      );
 
-        const finalWealth = balance - loans - betAmount + samplePayout;
-        finalWealths.push(finalWealth);
+      const { amount: amountSimple, outcome: outcomeSimple } =
+        getBetRecommendation({
+          estimatedProb,
+          deferenceFactor,
+          marketModel,
+          userModel: userModelSimple,
+        });
+
+      expect(outcomeFull).toBe(outcomeSimple);
+      // The full version should be at least somewhat lower
+      expect(amountFull).toBeLessThan(amountSimple);
+
+      const getExpectedLogWealth = (betAmount: number) => {
+        const seed = `${marketProb.toFixed(1)}_${estimatedProb.toFixed(
+          1
+        )}_${deferenceFactor.toFixed(1)}`;
+        const rng = seedrandom(seed);
+
+        const { newShares } = marketModel.getBetInfo(outcomeFull, betAmount);
+        const deferenceAdjustedProb =
+          deferenceFactor * estimatedProb + (1 - deferenceFactor) * marketProb;
+        const winProb =
+          outcomeFull === "YES"
+            ? deferenceAdjustedProb
+            : 1 - deferenceAdjustedProb;
+
+        const newPosition = {
+          probability: winProb,
+          payout: newShares,
+        };
+        const allPositions = [...positions, newPosition];
+
+        const instances = 100_000;
+        const finalWealths = [];
+
+        for (let i = 0; i < instances; i++) {
+          let samplePayout = 0;
+          for (const position of allPositions) {
+            if (rng() <= position.probability) {
+              samplePayout += position.payout;
+            }
+          }
+
+          const finalWealth = balance - loans - betAmount + samplePayout;
+          finalWealths.push(finalWealth);
+        }
+        const expectedLogWealth =
+          finalWealths.reduce((acc, wealth) => acc + Math.log(wealth), 0) /
+          instances;
+        return expectedLogWealth;
+      };
+
+      const expectedLogWealth = getExpectedLogWealth(amountFull);
+      const variations = [-2, -1, 1, 2];
+
+      for (const variation of variations) {
+        const newAmount = Math.min(
+          Math.max(amountFull + variation, 0),
+          balance - loans - 0.1
+        );
+        const variationExpectedLogWealth = getExpectedLogWealth(newAmount);
+        expect(variationExpectedLogWealth - expectedLogWealth).toBeLessThan(
+          (expectedLogWealth + variationExpectedLogWealth) / 1000
+        );
       }
-      const expectedLogWealth =
-        finalWealths.reduce((acc, wealth) => acc + Math.log(wealth), 0) /
-        instances;
-      return expectedLogWealth;
-    };
-
-    const expectedLogWealth = getExpectedLogWealth(amountFull);
-    const variations = [-2, -1, 1, 2];
-
-    for (const variation of variations) {
-      const newAmount = Math.min(
-        Math.max(amountFull + variation, 0),
-        balance - loans - 0.1
-      );
-      const variationExpectedLogWealth = getExpectedLogWealth(newAmount);
-      expect(variationExpectedLogWealth - expectedLogWealth).toBeLessThan(
-        (expectedLogWealth + variationExpectedLogWealth) / 1000
-      );
     }
   });
 

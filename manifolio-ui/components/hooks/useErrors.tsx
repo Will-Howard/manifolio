@@ -1,14 +1,7 @@
 import React, { ReactNode, createContext, useContext, useState } from "react";
 
-export type ManifolioErrorCode =
-  | "NETWORK_ERROR"
-  | "UNKNOWN_ERROR"
-  | "MARKET_CLOSED"
-  | "MARKET_NOT_CPMM";
-
 export type ManifolioError = {
   key: string;
-  code: ManifolioErrorCode;
   message: string;
   severity: "error" | "warning";
 };
@@ -24,17 +17,17 @@ const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
 const useErrorsInternal = (): ErrorContextType => {
   const [errors, setErrors] = useState<ManifolioError[]>([]);
 
-  function pushError(error: ManifolioError) {
+  const pushError = (error: ManifolioError) => {
     // Don't allow duplicate errors
     setErrors((errors) => {
       const newErrors = errors.filter((e) => e.key !== error.key);
       return [...newErrors, error];
     });
-  }
+  };
 
-  function clearError(key: string) {
+  const clearError = (key: string) => {
     setErrors((errors) => errors.filter((error) => error.key !== key));
-  }
+  };
 
   return { errors, pushError, clearError };
 };

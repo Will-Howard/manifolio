@@ -1,7 +1,12 @@
 import logger from "@/logger";
 import { CpmmMarketModel } from "./market";
-import { ManifoldPosition, integrateOverPmf } from "./probability";
+import {
+  ManifoldPosition,
+  integrateOverPmf,
+  mcSampleSize,
+} from "./probability";
 import { UserModel } from "./user";
+import { ManifolioError } from "@/components/ErrorMessage";
 
 type NaiveKellyProps = {
   marketProb: number;
@@ -344,11 +349,15 @@ export function calculateFullKellyBet({
   deferenceFactor,
   marketModel,
   userModel,
+  pushError = () => {},
+  clearError = () => {},
 }: {
   estimatedProb: number;
   deferenceFactor: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
+  pushError?: (error: ManifolioError) => void;
+  clearError?: (key: string) => void;
 }): BetRecommendation & { marketDeferralProb: number } {
   const currentPosition = userModel.getPosition(marketModel.market.id);
 
@@ -358,22 +367,19 @@ export function calculateFullKellyBet({
     currentPosition?.outcome === "NO" ? currentPosition.payout : 0;
 
   const balance = userModel.balance;
-  const balanceAfterLoans = userModel.balanceAfterLoans;
 
   // YES and NO shares relative to the balance after loans
-  const sYes = yesShares / balanceAfterLoans;
-  const sNo = noShares / balanceAfterLoans;
+  const sYes = yesShares / balance;
+  const sNo = noShares / balance;
 
   const illiquidPmf = userModel.getIlliquidPmf(currentPosition?.contractId);
 
   logger.debug("Illiquid PMF size:", illiquidPmf.size);
 
-  const currentMarketProb = marketModel.market.probability;
-
   const marketDeferralProb = getMarketDeferralProb(
     currentPosition,
     marketModel,
-    balanceAfterLoans
+    balance
   );
 
   const pYes =
@@ -384,24 +390,19 @@ export function calculateFullKellyBet({
   const currentPositionEV =
     (currentPosition?.payout ?? 0) * (currentPosition?.probability ?? 0);
   const illiquidEV = userModel.illiquidEV - currentPositionEV;
-  const relativeIlliquidEV = illiquidEV / balanceAfterLoans;
+
+  const relativeIlliquidEV = illiquidEV / balance;
+  const relativeLoans = userModel.loans / balance;
 
   const pmfEV = integrateOverPmf((payout) => payout, illiquidPmf);
 
   logger.debug("Available:", {
     balance,
-    balanceAfterLoans,
+    balanceAfterLoans: balance - userModel.loans,
     illiquidEV,
     pmfEV,
     relativeIlliquidEV,
-  });
-
-  const { amount: naiveKellyAmount } = calculateNaiveKellyBetWithPosition({
-    marketProb: currentMarketProb,
-    estimatedProb,
-    deferenceFactor,
-    bankroll: balanceAfterLoans,
-    position: { yesShares, noShares },
+    relativeLoans,
   });
 
   const englishOdds = (absBetEstimate: number, betOutcome: Outcome) => {
@@ -424,7 +425,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balanceAfterLoans;
+    const relativeBetEstimate = betEstimate / balance;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -443,6 +444,17 @@ export function calculateFullKellyBet({
 
     const I = effectiveRelativeIlliquidEV;
 
+    if (
+      Math.min(
+        1 + I + sYes + fYes * bYes - fNo,
+        1 + I + sNo + fNo * bNo - fYes
+      ) < 0
+    ) {
+      throw new Error(
+        "Net worth is negative in calculation, something has gone horribly wrong"
+      );
+    }
+
     // EV = p ln(1 + I + sYes + fYes * bYes - fNo) + q ln(1 + I + sNo + fNo * bNo - fYes)
     const A = dfYesdf * ((pYes * bYes) / (1 + I + sYes + fYes * bYes - fNo));
     const B = dfNodf * (-pYes / (1 + I + sYes + fYes * bYes - fNo));
@@ -453,12 +465,11 @@ export function calculateFullKellyBet({
 
     const F =
       dfYesdf *
-      ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
+      ((pYes * fYes * dbYesdBetYes * balance) /
         (1 + I + sYes + fYes * bYes - fNo));
     const G =
       dfNodf *
-      ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
-        (1 + I + sNo + fNo * bNo - fYes));
+      ((qYes * fNo * dbNodBetNo * balance) / (1 + I + sNo + fNo * bNo - fYes));
 
     const result = A + B + C + E + F + G;
     return result;
@@ -466,23 +477,23 @@ export function calculateFullKellyBet({
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, only considering the
-   * user's balance, not other illiquid investments they have. This should give an optimal bet
-   * _lower_ than the actual optimum
+   * user's balance (minus loans they will have to pay back), not other illiquid investments they have.
+   * This should give an optimal bet _lower_ than the actual optimum
    */
   const dEVdBetBalanceOnly = (betEstimate: number) =>
-    dEVdBetFixedBankroll(betEstimate, 0);
+    dEVdBetFixedBankroll(betEstimate, -relativeLoans);
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
    * user's balance and treating the illiquid investments as if they are a lump of cash
-   * equal to their current expected value ("cashed out" is a bit of misnomer here because
+   * equal to their current expected value ("cashed out" is a bit of malappropism here because
    * selling the shares would actually change the market price and so you couldn't recover the
    * full EV). This should give an optimal bet _higher_ than the actual optimum, because we are optimising
    * log wealth, which means scenarios where the illiquid investments don't pay out much hurt the EV more
    * than the other way around.
    */
   const dEVdBetIlliquidCashedOut = (betEstimate: number) =>
-    dEVdBetFixedBankroll(betEstimate, relativeIlliquidEV);
+    dEVdBetFixedBankroll(betEstimate, relativeIlliquidEV - relativeLoans);
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
@@ -495,7 +506,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balanceAfterLoans;
+    const relativeBetEstimate = betEstimate / balance;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -513,9 +524,20 @@ export function calculateFullKellyBet({
       fNo && D((x: number) => englishOdds(x, "NO"), absBetEstimate, 0.1);
 
     const integrand = (payout: number) => {
-      const I = payout / balanceAfterLoans;
+      const I = payout / balance - relativeLoans;
 
-      // EV = p ln(1 + I + fYes * bYes - fNo) + q ln(1 + I + fNo * bNo - fYes)
+      if (
+        Math.min(
+          1 + I + sYes + fYes * bYes - fNo,
+          1 + I + sNo + fNo * bNo - fYes
+        ) < 0
+      ) {
+        throw new Error(
+          "Net worth is negative in calculation, something has gone horribly wrong"
+        );
+      }
+
+      // EV = p ln(1 + I + sYes + fYes * bYes - fNo) + q ln(1 + I + sNo + fNo * bNo - fYes)
       const A = dfYesdf * ((pYes * bYes) / (1 + I + sYes + fYes * bYes - fNo));
       const B = dfNodf * (-pYes / (1 + I + sYes + fYes * bYes - fNo));
 
@@ -525,11 +547,11 @@ export function calculateFullKellyBet({
 
       const F =
         dfYesdf *
-        ((pYes * fYes * dbYesdBetYes * balanceAfterLoans) /
+        ((pYes * fYes * dbYesdBetYes * balance) /
           (1 + I + sYes + fYes * bYes - fNo));
       const G =
         dfNodf *
-        ((qYes * fNo * dbNodBetNo * balanceAfterLoans) /
+        ((qYes * fNo * dbNodBetNo * balance) /
           (1 + I + sNo + fNo * bNo - fYes));
 
       const result = A + B + C + E + F + G;
@@ -541,33 +563,86 @@ export function calculateFullKellyBet({
     return integral;
   };
 
-  // TODO refine these bounds
+  const balanceOnlyBound = (balance - userModel.loans) * 0.99;
+  const absoluteBound = Math.min(
+    balanceOnlyBound + Math.min(...illiquidPmf.keys()) * 0.99,
+    balance * 0.99
+  );
+  const cashedOutBound = balanceOnlyBound + illiquidEV * 0.99;
+
+  const balanceBoundNonPositive = balanceOnlyBound <= 0;
+  const absoluteBoundNonPositive = absoluteBound <= 0;
+
+  if (balanceBoundNonPositive) {
+    pushError({
+      key: "ruinWarning",
+      message:
+        "You have total loans greater than your current balance. Under strict Kelly betting, " +
+        "you should not bet at all in this scenario because there is non-zero risk of ruin. " +
+        "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
+        `all your money does not actually occur in any of the (up to ${mcSampleSize.toLocaleString()}) scenarios it simulates.`,
+      severity: "warning",
+    });
+  }
+
+  if (absoluteBoundNonPositive) {
+    const pRuin = integrateOverPmf((payout) => {
+      const I = payout * 0.99 + balanceOnlyBound;
+      return I <= 0 ? 1 : 0;
+    }, illiquidPmf);
+
+    pushError({
+      key: "ruinWarning",
+      message:
+        "You have a non-trivial risk of ruin with your current portfolio, so this caculator will recommend " +
+        `that you should not bet at all. Under strict Kelly betting, if you have total loans greater than ` +
+        "your balance then there is a non-zero chance of losing all your money, so you shouldn't bet. " +
+        "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
+        `all your money does not actually occur in any of the (up to ${mcSampleSize.toLocaleString()}) scenarios it simulates. ` +
+        `In this case this did occur in ${
+          pRuin * 100
+        }% of scenarios, so the recommended bet is 0. You may be able to bring down this risk by selling large ` +
+        "positions that you have held for a long time (which will have accumulated a lot of loans).",
+      severity: "warning",
+    });
+    throw new Error("Absolute bound is negative");
+  }
+
+  if (!balanceBoundNonPositive) {
+    clearError("ruinWarning");
+  }
+
   const optimalBetBalanceOnly =
-    balanceAfterLoans > 0
+    balanceOnlyBound > 0
       ? findRoot(
           dEVdBetBalanceOnly,
-          -naiveKellyAmount,
-          naiveKellyAmount,
+          -balanceOnlyBound,
+          balanceOnlyBound,
           "binary"
         )
       : 0;
 
-  // If the market were perfectly liquid for bets above optimalBetBalanceOnly, and the users illiquid investments
-  // had a 100% chance of paying out, this would be the optimal bet
-  const finalUpperBound = Math.min(
-    Math.abs(optimalBetBalanceOnly * (1 + relativeIlliquidEV)),
-    0.99 * balanceAfterLoans
-  );
+  const optimalBetCashedOut =
+    cashedOutBound > 0
+      ? findRoot(
+          dEVdBetIlliquidCashedOut,
+          -cashedOutBound,
+          cashedOutBound,
+          "binary"
+        )
+      : 0;
 
-  const optimalBetCashedOut = findRoot(
-    dEVdBetIlliquidCashedOut,
-    -finalUpperBound,
-    finalUpperBound,
+  const bounds = [optimalBetBalanceOnly, optimalBetCashedOut].sort(
+    // The default implementation of sort is by increasing _absolute_ value (insane decision),
+    // we want just increasing value
+    (a, b) => a - b
+  );
+  const optimalBet = findRoot(
+    dEVdBet,
+    Math.max(bounds[0], -absoluteBound),
+    Math.min(bounds[1], absoluteBound),
     "binary"
   );
-
-  const bounds = [optimalBetBalanceOnly, optimalBetCashedOut].sort();
-  const optimalBet = findRoot(dEVdBet, bounds[0], bounds[1], "binary");
 
   const optimalBetAmount = Math.abs(optimalBet);
   const optimalOutcome = optimalBet > 0 ? "YES" : "NO";
@@ -613,11 +688,15 @@ function getBetRecommendationInner({
   deferenceFactor,
   marketModel,
   userModel,
+  pushError = () => {},
+  clearError = () => {},
 }: {
   estimatedProb: number;
   deferenceFactor: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
+  pushError?: (error: ManifolioError) => void;
+  clearError?: (key: string) => void;
 }): BetRecommendationFull {
   const {
     amount,
@@ -631,6 +710,8 @@ function getBetRecommendationInner({
     deferenceFactor,
     marketModel,
     userModel,
+    pushError,
+    clearError,
   });
 
   if (!marketModel.market.closeTime) {
@@ -709,24 +790,33 @@ export function getBetRecommendation({
   deferenceFactor,
   marketModel,
   userModel,
+  pushError = () => {},
+  clearError = () => {},
 }: {
   estimatedProb: number;
   deferenceFactor: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
+  pushError?: (error: ManifolioError) => void;
+  clearError?: (key: string) => void;
 }): BetRecommendationFull {
   const errorFallback = {
     amount: 0,
     outcome: "YES",
     newShares: 0,
     pAfter: 0,
-    annualRoi: 0,
-    annualTotalRoi: 0,
+    annualRoi: 1,
+    annualTotalRoi: 1,
     positionAfter: { yesShares: 0, noShares: 0, cash: 0 },
-    // TODO add explicit error codes
   } as const;
 
-  if (!estimatedProb || !deferenceFactor || !marketModel || !userModel) {
+  if (
+    [estimatedProb, deferenceFactor, marketModel, userModel].some((v) =>
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      [null, undefined].includes(v)
+    )
+  ) {
     return errorFallback;
   }
 
@@ -736,6 +826,8 @@ export function getBetRecommendation({
       deferenceFactor,
       marketModel,
       userModel,
+      pushError,
+      clearError,
     });
   } catch (e) {
     logger.error(e);

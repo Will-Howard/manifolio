@@ -154,7 +154,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   setPlacedBets,
 }) => {
   const classes = useStyles();
-  const { errors } = useErrors();
+  const { errors, pushError, clearError } = useErrors();
 
   // const hasWarnings = errors.some(
   //   (error: ManifolioError) => error.severity === "warning"
@@ -205,6 +205,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           deferenceFactor,
           marketModel,
           userModel,
+          pushError,
+          clearError,
         });
 
         setBetRecommendation(kellyWithPortfolioOptimalBet);
