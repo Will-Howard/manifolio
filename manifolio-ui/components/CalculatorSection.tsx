@@ -11,6 +11,7 @@ import { Theme } from "@/styles/theme";
 import { useErrors } from "./hooks/useErrors";
 import { CpmmMarketModel } from "@/lib/market";
 import PlaceBetSection from "./PlaceBetSection";
+import classNames from "classnames";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -20,12 +21,17 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   inputField: {
     flex: 1,
+    maxWidth: 403,
   },
   detailsContainer: {
     display: "flex",
     flexDirection: "column",
     width: "100%",
-    margin: "16px 0",
+    marginTop: 12,
+    marginBottom: 16,
+    [theme.breakpoints.sm]: {
+      marginTop: 8,
+    },
   },
   detailsRow: {
     display: "flex",
@@ -46,6 +52,20 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   green: {
     color: theme.green,
+  },
+  advancedOptions: {
+    fontWeight: 600,
+    cursor: "pointer",
+    width: "fit-content",
+    marginBottom: 8,
+  },
+  arrow: {
+    display: "inline-block",
+    fontSize: "0.7rem",
+    marginRight: 2,
+  },
+  arrowOpen: {
+    transform: "rotate(90deg)",
   },
 }));
 
@@ -91,10 +111,12 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     "probabilityInput",
     50
   );
-  const [safetyFactor, setKellyFraction] = useLocalStorageState<number>(
-    "safetyFactor",
+  const [deferralFactor, setDeferralFactor] = useLocalStorageState<number>(
+    "deferralFactor",
     50
   );
+  const [showAdvancedOptions, setShowAdvancedOptions] =
+    useLocalStorageState<boolean>("showAdvancedOptions", false);
 
   const [betRecommendation, setBetRecommendation] = useState<
     BetRecommendationFull | undefined
@@ -135,10 +157,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      1 - safetyFactor / 100
+      deferralFactor / 100
     );
   }, [
-    safetyFactor,
+    deferralFactor,
     marketModel,
     probabilityInput,
     userModel,
@@ -184,7 +206,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     <>
       <div className={classes.inputSection}>
         <InputField
-          label="Prob. estimate (%)"
+          label={<strong>Probability estimate (%)</strong>}
           id="probabilityInput"
           type="number"
           step="1"
@@ -192,17 +214,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           max="100"
           value={probabilityInput}
           onChange={(e) => setProbabilityInput(parseFloat(e.target.value))}
-          className={classes.inputField}
-        />
-        <InputField
-          label="Safety factor (%)"
-          id="safetyFactorInput"
-          type="number"
-          step="1"
-          min="0"
-          max="100"
-          value={safetyFactor}
-          onChange={(e) => setKellyFraction(parseFloat(e.target.value))}
           className={classes.inputField}
         />
       </div>
@@ -232,6 +243,48 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         betRecommendation={betRecommendation}
         setRefetchCounter={setRefetchCounter}
       />
+      <div
+        className={classes.advancedOptions}
+        onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+      >
+        <span
+          className={classNames(classes.arrow, {
+            [classes.arrowOpen]: showAdvancedOptions,
+          })}
+        >
+          ▶
+        </span>{" "}
+        Advanced options
+      </div>
+      {showAdvancedOptions && (
+        <>
+          <InputField
+            label="Deferral factor (%)"
+            subtitle={
+              <>
+                Lower values mean you are deferring to the market more, and
+                taking less risk. This is equivalent to{" "}
+                <a
+                  href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  &quot;fractional Kelly betting&quot;
+                </a>
+              </>
+            }
+            id="deferralFactorInput"
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            value={deferralFactor}
+            onChange={(e) => setDeferralFactor(parseFloat(e.target.value))}
+            className={classes.inputField}
+          />
+          {/* TODO dates */}
+        </>
+      )}
     </>
   );
 };

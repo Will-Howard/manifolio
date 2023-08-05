@@ -45,6 +45,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     border: `2px solid`,
     borderRadius: 8,
     padding: 16,
+    marginBottom: 16,
   },
   betInputSection: {
     display: "flex",
@@ -128,8 +129,6 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
   betRecommendation,
   setRefetchCounter,
 }) => {
-  logger.info(`starting rendering PlaceBetSection ${new Date().toISOString()}`);
-
   const classes = useStyles();
   const { errors } = useErrors();
 
@@ -254,11 +253,6 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
     marketModel?.market?.id,
     setRefetchCounter,
   ]);
-
-  logger.info(`ending rendering PlaceBetSection ${new Date().toISOString()}`, {
-    editableAmount,
-    editableOutcome,
-  });
 
   return (
     <div className={classes.placeBetSection}>

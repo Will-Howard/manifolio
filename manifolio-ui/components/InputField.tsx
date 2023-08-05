@@ -8,14 +8,16 @@ const useStyles = createUseStyles({
     flexDirection: "column",
     marginBottom: 8,
   },
-  label: {
-    marginBottom: 8,
+  label: {},
+  subtitle: {
+    fontStyle: "italic",
+    fontSize: "0.8rem",
   },
   input: {
+    marginTop: 8,
     lineHeight: "26px",
     borderRadius: 4,
     padding: "0 6px",
-    marginTop: "auto",
   },
   inputError: {
     border: "2px solid red",
@@ -29,6 +31,7 @@ interface InputFieldProps {
   id: string;
   type: string;
   label?: string | JSX.Element;
+  subtitle?: string | JSX.Element;
   step?: string;
   min?: string;
   max?: string;
@@ -86,6 +89,9 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         <label className={classes.label} htmlFor={props.id}>
           {props.label}
         </label>
+      )}
+      {props.subtitle && (
+        <span className={classes.subtitle}>{props.subtitle}</span>
       )}
       <input
         id={props.id}
