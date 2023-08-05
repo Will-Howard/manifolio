@@ -7,6 +7,7 @@ import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
 import { useErrors } from "./hooks/useErrors";
+import logger from "@/logger";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -132,24 +133,25 @@ const UserSection: React.FC<UserSectionProps> = ({
 
   // Fetch the user
   useEffect(() => {
+    if (!usernameInput || usernameInput.length == 0) return;
     if (
-      !usernameInput ||
-      usernameInput.length == 0 ||
-      (usernameInput === user?.username &&
-        usernameInput === userModel?.user?.username &&
-        refetchCounterRef.current === refetchCounter)
-    )
+      usernameInput === user?.username &&
+      refetchCounterRef.current === refetchCounter
+    ) {
+      setFoundUser(true);
       return;
+    }
+
     const parsedUsername =
       usernameInput.split("/").pop()?.replace("@", "") || "";
 
     const tryFetchUser = async (username: string) => {
-      const user = await fetchUser(username);
-      setFoundUser(!!user);
+      const _user = await fetchUser(username);
+      setFoundUser(!!_user);
 
-      if (!user) return;
-      setUser(user);
-      if (authedUsername && user.username !== authedUsername) {
+      if (!_user) return;
+      setUser(_user);
+      if (authedUsername && _user.username !== authedUsername) {
         pushError({
           key: "wrongUser",
           code: "UNKNOWN_ERROR", // FIXME error codes are turning out to be annoying, maybe remove them and just use the key
@@ -157,21 +159,20 @@ const UserSection: React.FC<UserSectionProps> = ({
           severity: "warning",
         });
       }
-      if (authedUsername && user.username === authedUsername) {
+      if (authedUsername && _user.username === authedUsername) {
         clearError("wrongUser");
       }
       setUserModel(undefined);
 
-      // slow
-      const userModel = await buildUserModel(
-        user,
+      const _userModel = await buildUserModel(
+        _user,
         pushError,
         clearError,
         setNumBetsLoaded,
         placedBets
       );
       // TODO return errors from buildUserModel
-      setUserModel(userModel);
+      setUserModel(_userModel);
       refetchCounterRef.current = refetchCounter;
     };
     void tryFetchUser(parsedUsername);

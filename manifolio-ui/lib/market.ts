@@ -6,6 +6,9 @@ import {
   getBinaryCpmmBetInfo,
   getCpmmProbability,
 } from "./vendor/manifold-helpers";
+import { getSupabaseClient } from "./manifold-supabase-api";
+import logger from "@/logger";
+import { chunk } from "lodash";
 
 export class CpmmMarketModel {
   public market: FullMarket;
@@ -23,7 +26,7 @@ export class CpmmMarketModel {
     balanceByUserId: Record<string, number>;
   }) {
     this.market = market;
-    this.bets = bets;
+    this.bets = bets; // FIXME we don't all bets at all, just unfilled ones
     this.unfilledBets = this.bets.filter(
       (bet) => bet.isFilled === false && bet.isCancelled === false
     );
@@ -48,7 +51,7 @@ export class CpmmMarketModel {
   };
 }
 
-const buildCpmmMarketModelInner = async (
+const buildCpmmMarketModelInnerV0Api = async (
   market: FullMarket
 ): Promise<CpmmMarketModel> => {
   const api = getManifoldApi();
@@ -85,7 +88,7 @@ const buildCpmmMarketModelInner = async (
   const userIds = [...new Set(unfilledBets.map((bet) => bet.userId))];
 
   const users = await Promise.all(
-    userIds.map((userId) => getManifoldApi().getUser({ id: userId }))
+    userIds.map((userId) => api.getUser({ id: userId }))
   );
   const balanceByUserId = users.reduce((acc, user) => {
     if (user) {
@@ -97,11 +100,64 @@ const buildCpmmMarketModelInner = async (
   return new CpmmMarketModel({ market, bets: allBets, balanceByUserId });
 };
 
+const buildCpmmMarketModelInnerSupabaseApi = async (
+  market: FullMarket
+): Promise<CpmmMarketModel> => {
+  const client = getSupabaseClient();
+
+  const { data: limitBets } = await client
+    .from("contract_bets")
+    .select("*")
+    .eq("contract_id", market.id)
+    .eq("data->>isFilled", false)
+    .eq("data->>isCancelled", false)
+    .eq("is_ante", false)
+    .eq("is_redemption", false)
+    // Don't filter on expiresAt here, do it manaully because I don't trust null/undefined handling
+    .limit(1000);
+
+  const flattenedBets = (limitBets ?? []).map((bet) => bet?.data) as LimitBet[];
+  const nonExpiredBets = flattenedBets.filter(
+    (bet) => !bet.expiresAt || bet.expiresAt > Date.now()
+  );
+
+  const userIds = [...new Set(nonExpiredBets.map((bet) => bet.userId))];
+
+  // Split the userIds into chunks of 200
+  const userIdChunks = chunk(userIds, 200);
+
+  let users: { id: string; balance: string }[] = [];
+
+  for (const chunk of userIdChunks) {
+    const { data: chunkUsers } = await client
+      .from("users")
+      .select("id, data->>balance")
+      .in("id", chunk)
+      .limit(chunk.length);
+
+    users = [...users, ...(chunkUsers ?? [])];
+  }
+
+  const balanceByUserId = (users ?? []).reduce((acc, user) => {
+    try {
+      if (user) {
+        acc[user.id] = parseFloat(user.balance);
+      }
+    } catch (e) {
+      logger.error("error parsing balance", user, e);
+    }
+    return acc;
+  }, {} as { [userId: string]: number });
+
+  return new CpmmMarketModel({ market, bets: nonExpiredBets, balanceByUserId });
+};
+
 export const buildCpmmMarketModel = async (
   market: FullMarket
 ): Promise<CpmmMarketModel | undefined> => {
   try {
-    return await buildCpmmMarketModelInner(market);
+    // return await buildCpmmMarketModelInnerV0Api(market);
+    return await buildCpmmMarketModelInnerSupabaseApi(market);
   } catch (e) {
     // TODO distinguish unexpected errors from 404s
     return undefined;

@@ -16,27 +16,28 @@ import { Outcome } from "./calculate";
 import { ManifolioError } from "@/components/ErrorMessage";
 import logger from "@/logger";
 import { getCpmmProbability } from "./vendor/manifold-helpers";
+import { getSupabaseClient, supabaseToV0Market } from "./manifold-supabase-api";
 
 let marketsEndpointEnabled = false;
 export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
-const checkMarketsEndpointEnabled = async () => {
-  const api = getManifoldApi();
-  // Get 3 markets
-  const markets = await api.getMarkets({ limit: 5 });
+// const checkMarketsEndpointEnabled = async () => {
+//   const api = getManifoldApi();
+//   // Get 3 markets
+//   const markets = await api.getMarkets({ limit: 5 });
 
-  // Try getting 2 of them by id (2nd and 4th ones)
-  const marketIds = (await markets).map((market) => market.id);
-  const marketsById = await api.getMarkets({
-    ids: [marketIds[1], marketIds[3]],
-    limit: 5,
-  });
+//   // Try getting 2 of them by id (2nd and 4th ones)
+//   const marketIds = (await markets).map((market) => market.id);
+//   const marketsById = await api.getMarkets({
+//     ids: [marketIds[1], marketIds[3]],
+//     limit: 5,
+//   });
 
-  // If we get back 2 markets, then the endpoint is enabled
-  marketsEndpointEnabled = marketsById.length === 2;
-};
+//   // If we get back 2 markets, then the endpoint is enabled
+//   marketsEndpointEnabled = marketsById.length === 2;
+// };
 
-void checkMarketsEndpointEnabled();
-setInterval(checkMarketsEndpointEnabled, 60_000 * 5);
+// void checkMarketsEndpointEnabled();
+// setInterval(checkMarketsEndpointEnabled, 60_000 * 5);
 
 export class UserModel {
   user: User;
@@ -146,13 +147,13 @@ const fetchMarketsByIds = async ({
   logger.warn(
     `Falling back to getting markets one by one. Fetching ${ids.length} markets.`
   );
-  const truncatedIds = ids.slice(0, 100);
+  const truncatedIds = ids.slice(0, 10);
 
   if (truncatedIds.length < ids.length) {
     pushError({
       key: "positionsTruncated",
       code: "UNKNOWN_ERROR",
-      message: `Only ${truncatedIds.length} of ${ids.length} positions fetch to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
+      message: `Only ${truncatedIds.length} of ${ids.length} positions fetched to avoid overloading the Manifold API. This will mean that "Portfolio value" and "Total loans" may be incorrect. This limitation will be fixed soon.`,
       severity: "warning",
     });
   } else {
@@ -179,7 +180,6 @@ const calculateCpmm1Positions = (
     contractId: string;
     netYesShares: number;
     netLoan: number;
-    evEstimate: number;
   }>,
   markets: LiteMarket[]
 ): ManifoldPosition[] => {
@@ -327,7 +327,141 @@ const calculateFreeResponsePositions = async (
   return [];
 };
 
-export const buildUserModel = async (
+const buildUserModelInnerSupabaseApi = async (
+  manifoldUser: User,
+  pushError: (error: ManifolioError) => void = () => {},
+  clearError: (key: string) => void = () => {},
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
+  extraBets: Bet[] = []
+): Promise<UserModel | undefined> => {
+  const client = getSupabaseClient();
+
+  const { data: contractMetrics } = await client
+    .from("user_contract_metrics")
+    .select()
+    .eq("user_id", manifoldUser.id)
+    .limit(1000);
+
+  const contractIds = [
+    ...new Set(
+      (contractMetrics ?? [])
+        .map((pos) => pos?.data?.contractId)
+        .filter((id) => id !== undefined) as string[]
+    ),
+  ];
+  const contractMetricsByContractId = groupBy(
+    contractMetrics,
+    (pos) => pos?.data?.contractId
+  );
+
+  // Split contractIds into chunks of 200
+  const contractIdChunks = [];
+  for (let i = 0; i < contractIds.length; i += 200) {
+    contractIdChunks.push(contractIds.slice(i, i + 200));
+  }
+
+  let unresolvedMarketsRaw: any[] = [];
+
+  for (const chunk of contractIdChunks) {
+    const { data: chunkMarkets } = await client
+      .from("contracts")
+      .select()
+      .in("id", chunk)
+      .eq("data->>isResolved", false)
+      .limit(chunk.length);
+
+    unresolvedMarketsRaw = [...unresolvedMarketsRaw, ...(chunkMarkets ?? [])];
+  }
+
+  const unresolvedMarkets = unresolvedMarketsRaw.map((m) =>
+    supabaseToV0Market(m)
+  );
+
+  const filterMarketsAndMetrics = (
+    markets: LiteMarket[],
+    predicate: (
+      value: LiteMarket,
+      index: number,
+      array: LiteMarket[]
+    ) => boolean
+  ) => {
+    const filteredMarkets = markets.filter(predicate);
+    // get metrics for filtered markets
+    const filteredContractIds = filteredMarkets.map((m) => m.id);
+    const filteredContractMetrics = filteredContractIds
+      .map((id) => contractMetricsByContractId[id])
+      .flat();
+
+    return [filteredMarkets, filteredContractMetrics];
+  };
+
+  const [binaryMarkets, binaryMarketMetrics] = filterMarketsAndMetrics(
+    unresolvedMarkets,
+    (market) =>
+      market.mechanism === "cpmm-1" &&
+      ["BINARY", "PSEUDO_NUMERIC", "STONK"].includes(market.outcomeType)
+  );
+
+  // Format into what calculateCpmm1Positions expects
+  const binaryMetricsFormatted: Dictionary<{
+    contractId: string;
+    netYesShares: number;
+    netLoan: number;
+  }> = binaryMarketMetrics.reduce((acc, metric) => {
+    const netYesShares = metric.total_shares_yes - metric.total_shares_no;
+    const netLoan = metric.data?.loan ?? 0;
+
+    if (Math.abs(netYesShares) >= 1) {
+      acc[metric.data?.contractId] = {
+        contractId: metric.data?.contractId,
+        netYesShares: netYesShares,
+        netLoan,
+      };
+    }
+    return acc;
+  }, {});
+
+  const binaryPositions = calculateCpmm1Positions(
+    binaryMetricsFormatted,
+    binaryMarkets
+  );
+
+  // For now, just treat all non-cpmm-1 markets as resolving to their expected value with probability 1
+  const [nonBinaryMarkets, nonBinaryMarketMetrics] = filterMarketsAndMetrics(
+    unresolvedMarkets,
+    (market) =>
+      !(
+        market.mechanism === "cpmm-1" &&
+        ["BINARY", "PSEUDO_NUMERIC", "STONK"].includes(market.outcomeType)
+      )
+  );
+
+  const nonBinaryPositions: ManifoldPosition[] = nonBinaryMarketMetrics
+    .filter((metric) => Math.abs(metric.data?.payout ?? 0) >= 1)
+    .map((metric) => {
+      const market = nonBinaryMarkets.find(
+        (market) => market.id === metric.data?.contractId
+      );
+
+      return {
+        probability: 1,
+        // NOTE: metric.data?.payout is the expected value of the market, not the payout on success
+        payout: metric.data?.payout ?? 0,
+        loan: metric.data?.loan ?? 0,
+        contractId: metric.data?.contractId ?? "",
+        marketName: market?.question,
+        type: market?.outcomeType ?? "FREE_RESPONSE",
+      };
+    });
+
+  const positions = [...binaryPositions, ...nonBinaryPositions];
+
+  const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
+
+  return new UserModel(manifoldUser, manifoldUser.balance, loans, positions);
+};
+
+const buildUserModelInnerV0Api = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
@@ -433,6 +567,8 @@ export const buildUserModel = async (
   const openMarkets = markets.filter(
     (market) =>
       market.isResolved === false &&
+      // FIXME this is wrong, we actually do want to include markets that are closed but not yet resolved.
+      // Probably I won't fix this because I'm switching to the supabase version anyway
       market.closeTime &&
       market.closeTime > Date.now()
   );
@@ -511,6 +647,40 @@ export const buildUserModel = async (
   const loans = positions.reduce((acc, pos) => acc + (pos.loan ?? 0), 0);
 
   return new UserModel(manifoldUser, manifoldUser.balance, loans, positions);
+};
+
+export const buildUserModel = async (
+  manifoldUser: User,
+  pushError: (error: ManifolioError) => void = () => {},
+  clearError: (key: string) => void = () => {},
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
+  extraBets: Bet[] = []
+): Promise<UserModel | undefined> => {
+  try {
+    // return await buildUserModelInnerV0Api(
+    //   manifoldUser,
+    //   pushError,
+    //   clearError,
+    //   setNumBetsLoaded,
+    //   extraBets
+    // );
+    return await buildUserModelInnerSupabaseApi(
+      manifoldUser,
+      pushError,
+      clearError,
+      setNumBetsLoaded,
+      extraBets
+    );
+  } catch (e) {
+    logger.error(`Error building user model for ${manifoldUser.username}`, e);
+    pushError({
+      key: "userModelError",
+      code: "UNKNOWN_ERROR",
+      message: `Error building user model for ${manifoldUser.username}`,
+      severity: "error",
+    });
+    return undefined;
+  }
 };
 
 export const getAuthedUsername = async (
