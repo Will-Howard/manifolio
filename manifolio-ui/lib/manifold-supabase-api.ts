@@ -3,6 +3,7 @@ import {
   SupabaseClientOptions,
   createClient,
 } from "@supabase/supabase-js";
+import { LiteMarket } from "./vendor/manifold-sdk";
 
 let _client: SupabaseClient | undefined = undefined;
 
@@ -27,4 +28,14 @@ export function getSupabaseClient() {
   _client = createSupabaseClient(instanceId, key);
 
   return _client;
+}
+
+export function supabaseToV0Market(market: any): LiteMarket {
+  // market.data is ~equivalent to FullMarket. Known differences:
+  // - market.data.prob is equivalent to fullmarket.probablity
+
+  return {
+    ...market?.data,
+    probability: market?.data?.prob,
+  } as LiteMarket;
 }

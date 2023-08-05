@@ -8,6 +8,7 @@ import {
 } from "./vendor/manifold-helpers";
 import { getSupabaseClient } from "./manifold-supabase-api";
 import logger from "@/logger";
+import { chunk } from "lodash";
 
 export class CpmmMarketModel {
   public market: FullMarket;
@@ -122,11 +123,20 @@ const buildCpmmMarketModelInnerSupabaseApi = async (
 
   const userIds = [...new Set(nonExpiredBets.map((bet) => bet.userId))];
 
-  const { data: users } = await client
-    .from("users")
-    .select("id, data->>balance")
-    .in("id", userIds)
-    .limit(1000);
+  // Split the userIds into chunks of 200
+  const userIdChunks = chunk(userIds, 200);
+
+  let users: { id: string; balance: string }[] = [];
+
+  for (const chunk of userIdChunks) {
+    const { data: chunkUsers } = await client
+      .from("users")
+      .select("id, data->>balance")
+      .in("id", chunk)
+      .limit(chunk.length);
+
+    users = [...users, ...(chunkUsers ?? [])];
+  }
 
   const balanceByUserId = (users ?? []).reduce((acc, user) => {
     try {
