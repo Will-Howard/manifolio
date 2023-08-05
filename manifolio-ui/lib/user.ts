@@ -328,9 +328,7 @@ const calculateFreeResponsePositions = async (
 const buildUserModelInnerSupabaseApi = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
-  clearError: (key: string) => void = () => {},
-  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
-  extraBets: Bet[] = []
+  clearError: (key: string) => void = () => {}
 ): Promise<UserModel | undefined> => {
   const client = getSupabaseClient();
 
@@ -460,7 +458,7 @@ const buildUserModelInnerV0Api = async (
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
   setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
-  extraBets: Bet[] = []
+  placedBets: Bet[] = []
 ): Promise<UserModel | undefined> => {
   const api = getManifoldApi();
 
@@ -492,7 +490,7 @@ const buildUserModelInnerV0Api = async (
     before = fetchedBets[fetchedBets.length - 1].id;
   }
 
-  const allBets = [...new Set([...fetchedBets, ...extraBets])];
+  const allBets = [...new Set([...fetchedBets, ...placedBets])];
 
   // Fetch all the users bets, then construct positions from them
   // Note 1: partially filled bets still have the correct "amount" and "shares" fields
@@ -646,8 +644,7 @@ export const buildUserModel = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
-  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
-  extraBets: Bet[] = []
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {}
 ): Promise<UserModel | undefined> => {
   try {
     // return await buildUserModelInnerV0Api(
@@ -655,14 +652,11 @@ export const buildUserModel = async (
     //   pushError,
     //   clearError,
     //   setNumBetsLoaded,
-    //   extraBets
     // );
     return await buildUserModelInnerSupabaseApi(
       manifoldUser,
       pushError,
-      clearError,
-      setNumBetsLoaded,
-      extraBets
+      clearError
     );
   } catch (e) {
     logger.error(`Error building user model for ${manifoldUser.username}`, e);

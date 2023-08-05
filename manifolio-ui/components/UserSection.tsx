@@ -1,14 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
-import type { Bet, User } from "@/lib/vendor/manifold-sdk";
+import type { User } from "@/lib/vendor/manifold-sdk";
 import { Classes } from "jss";
 import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
 import { useErrors } from "./hooks/useErrors";
 import logger from "@/logger";
-import { useLocalStorageState } from "./hooks/useLocalStorageState";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -111,7 +110,6 @@ interface UserSectionProps {
   userModel?: UserModel;
   setUserModel: React.Dispatch<React.SetStateAction<UserModel | undefined>>;
   refetchCounter: number;
-  placedBets: Bet[];
 }
 
 const parseUsername = (usernameInput: string | undefined): string =>
@@ -124,7 +122,6 @@ const UserSection: React.FC<UserSectionProps> = ({
   userModel,
   setUserModel,
   refetchCounter,
-  placedBets,
 }: UserSectionProps) => {
   const classes = useStyles();
   const { pushError, clearError } = useErrors();
@@ -175,28 +172,29 @@ const UserSection: React.FC<UserSectionProps> = ({
       setFoundUser(true);
       return;
     }
+    refetchCounterRef.current = refetchCounter;
 
     const parsedUsername = parseUsername(usernameInput);
 
     const tryFetchUser = async (username: string) => {
+      logger.debug("Fetching user", username);
       const _user = await fetchUser(username);
 
       if (!_user) return;
       loadedUsers.current[username] = _user;
       updateDisplayUsers();
 
+      logger.debug("Building user model", username);
       const _userModel = await buildUserModel(
         _user,
         pushError,
         clearError,
-        setNumBetsLoaded,
-        placedBets
+        setNumBetsLoaded
       );
       if (!_userModel) return;
 
       loadedUserModels.current[username] = _userModel;
       updateDisplayUsers();
-      refetchCounterRef.current = refetchCounter;
     };
     void tryFetchUser(parsedUsername);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -206,7 +204,6 @@ const UserSection: React.FC<UserSectionProps> = ({
     authedUsername,
     user?.username,
     userModel?.user.username,
-    placedBets,
     updateDisplayUsers,
     // pushError,
     // clearError,
