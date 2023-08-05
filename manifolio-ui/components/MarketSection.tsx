@@ -13,6 +13,7 @@ import { UserModel } from "@/lib/user";
 import { Theme } from "@/styles/theme";
 import classNames from "classnames";
 import moment from "moment";
+import logger from "@/logger";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -153,6 +154,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
     const parsedSlug = getSlug(marketInput);
 
     const tryFetchMarket = async (slug: string) => {
+      logger.debug(`Fetching market ${slug}`);
       const market = await fetchMarket(slug);
       setFoundMarket(!!market);
 
@@ -161,7 +163,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
 
       if (errorCheck(market)) return;
 
-      // slow
+      logger.debug(`Building market model for ${slug}`);
       const marketModel = await buildCpmmMarketModel(market);
       setMarketModel(marketModel);
     };

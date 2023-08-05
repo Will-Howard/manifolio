@@ -318,7 +318,7 @@ const getMarketDeferralProb = (
     getNetSharesForAmount,
     0,
     balanceAfterLoans,
-    "binary"
+    "newton"
   );
 
   const { newShares, probAfter } = marketModel.getBetInfo(

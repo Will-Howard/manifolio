@@ -175,16 +175,19 @@ const UserSection: React.FC<UserSectionProps> = ({
       setFoundUser(true);
       return;
     }
+    refetchCounterRef.current = refetchCounter;
 
     const parsedUsername = parseUsername(usernameInput);
 
     const tryFetchUser = async (username: string) => {
+      logger.debug("Fetching user", username);
       const _user = await fetchUser(username);
 
       if (!_user) return;
       loadedUsers.current[username] = _user;
       updateDisplayUsers();
 
+      logger.debug("Building user model", username);
       const _userModel = await buildUserModel(
         _user,
         pushError,
@@ -196,7 +199,6 @@ const UserSection: React.FC<UserSectionProps> = ({
 
       loadedUserModels.current[username] = _userModel;
       updateDisplayUsers();
-      refetchCounterRef.current = refetchCounter;
     };
     void tryFetchUser(parsedUsername);
     // eslint-disable-next-line react-hooks/exhaustive-deps
