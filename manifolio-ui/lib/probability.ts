@@ -1,7 +1,7 @@
 import seedrandom from "seedrandom";
 import { Outcome, UnivariateFunction } from "./calculate";
 
-const mcSampleSize = process.env.NEXT_PUBLIC_SAMPLE_SIZE
+export const mcSampleSize = process.env.NEXT_PUBLIC_SAMPLE_SIZE
   ? parseInt(process.env.NEXT_PUBLIC_SAMPLE_SIZE)
   : 50_000;
 
@@ -99,10 +99,11 @@ function computePayoutPMFCartesian(bets: PositionModel[]): PMF {
 
   const combinedDistribution: PMF = new Map<number, number>();
   for (const outcome of outcomeProbsAndPayouts) {
-    combinedDistribution.set(
-      outcome.payout,
-      (combinedDistribution.get(outcome.payout) || 0) + outcome.probability
-    );
+    const prob =
+      (combinedDistribution.get(outcome.payout) || 0) + outcome.probability;
+    if (prob <= 0) continue;
+
+    combinedDistribution.set(outcome.payout, prob);
   }
 
   return combinedDistribution;
@@ -116,7 +117,7 @@ function computePayoutPMFMonteCarlo(
   samples: number
 ): PMF {
   const seed = 1; // or any number of your choice
-  const rng = seedrandom(seed.toString()); // seedrandom is a seeded random number generator library
+  const rng = seedrandom(seed.toString());
 
   const sampleOutcomes: number[] = [];
 
@@ -141,6 +142,8 @@ function computePayoutPMFMonteCarlo(
   // Normalize counts to compute probabilities
   const outcomePMF: PMF = new Map();
   for (const [outcome, count] of outcomeCounts.entries()) {
+    if (count <= 0) continue;
+
     outcomePMF.set(outcome, count / samples);
   }
 

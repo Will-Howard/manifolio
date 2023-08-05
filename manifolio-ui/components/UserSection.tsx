@@ -154,7 +154,6 @@ const UserSection: React.FC<UserSectionProps> = ({
       if (authedUsername && _user.username !== authedUsername) {
         pushError({
           key: "wrongUser",
-          code: "UNKNOWN_ERROR", // FIXME error codes are turning out to be annoying, maybe remove them and just use the key
           message: `"${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
           severity: "warning",
         });
