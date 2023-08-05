@@ -267,7 +267,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
     // FIXME setUsernameInput causes rerender if added as a dependency. This is likely a bug in useLocalStorageState
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKeyInput, authedUsernameFound, refetchCounter]);
+  }, [apiKeyInput, refetchCounter]);
 
   const apiKeyInputStatus = authedUsernameFound
     ? "success"

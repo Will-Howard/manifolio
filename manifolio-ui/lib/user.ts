@@ -20,24 +20,24 @@ import { getSupabaseClient, supabaseToV0Market } from "./manifold-supabase-api";
 
 let marketsEndpointEnabled = false;
 export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
-const checkMarketsEndpointEnabled = async () => {
-  const api = getManifoldApi();
-  // Get 3 markets
-  const markets = await api.getMarkets({ limit: 5 });
+// const checkMarketsEndpointEnabled = async () => {
+//   const api = getManifoldApi();
+//   // Get 3 markets
+//   const markets = await api.getMarkets({ limit: 5 });
 
-  // Try getting 2 of them by id (2nd and 4th ones)
-  const marketIds = (await markets).map((market) => market.id);
-  const marketsById = await api.getMarkets({
-    ids: [marketIds[1], marketIds[3]],
-    limit: 5,
-  });
+//   // Try getting 2 of them by id (2nd and 4th ones)
+//   const marketIds = (await markets).map((market) => market.id);
+//   const marketsById = await api.getMarkets({
+//     ids: [marketIds[1], marketIds[3]],
+//     limit: 5,
+//   });
 
-  // If we get back 2 markets, then the endpoint is enabled
-  marketsEndpointEnabled = marketsById.length === 2;
-};
+//   // If we get back 2 markets, then the endpoint is enabled
+//   marketsEndpointEnabled = marketsById.length === 2;
+// };
 
-void checkMarketsEndpointEnabled();
-setInterval(checkMarketsEndpointEnabled, 60_000 * 5);
+// void checkMarketsEndpointEnabled();
+// setInterval(checkMarketsEndpointEnabled, 60_000 * 5);
 
 export class UserModel {
   user: User;
@@ -354,9 +354,6 @@ const buildUserModelInnerSupabaseApi = async (
     (pos) => pos?.data?.contractId
   );
 
-  logger.debug("user_contract_metrics", contractMetrics);
-  logger.debug("contractIds", contractIds);
-
   // Split contractIds into chunks of 200
   const contractIdChunks = [];
   for (let i = 0; i < contractIds.length; i += 200) {
@@ -376,13 +373,9 @@ const buildUserModelInnerSupabaseApi = async (
     unresolvedMarketsRaw = [...unresolvedMarketsRaw, ...(chunkMarkets ?? [])];
   }
 
-  logger.debug("contracts", unresolvedMarketsRaw);
-
   const unresolvedMarkets = unresolvedMarketsRaw.map((m) =>
     supabaseToV0Market(m)
   );
-
-  logger.debug("unresolvedMarkets", unresolvedMarkets);
 
   const filterMarketsAndMetrics = (
     markets: LiteMarket[],
