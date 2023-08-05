@@ -37,10 +37,6 @@ const useStyles = createUseStyles((theme: Theme) => ({
   green: {
     color: theme.green,
   },
-  yesButton: {
-    backgroundColor: `${theme.green} !important`,
-    color: `${theme.green} !important`,
-  },
   placeBetSection: {
     border: `2px solid`,
     borderRadius: 8,
@@ -308,7 +304,19 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
       </div>
       <div className={classes.betOutcomesContainer}>
         <Detail
-          label={`Payout if ${betOutcome}`}
+          label={
+            <>
+              Payout if{" "}
+              <strong
+                className={classNames({
+                  [classes.green]: betOutcome === "YES",
+                  [classes.red]: betOutcome === "NO",
+                })}
+              >
+                {betOutcome}
+              </strong>
+            </>
+          }
           value={`M${formatInt(betShares)}`}
           classes={classes}
         />

@@ -8,13 +8,16 @@ const useStyles = createUseStyles({
     flexDirection: "column",
     marginBottom: 8,
   },
-  label: {},
+  headerSection: {
+    display: "flex",
+    flexDirection: "column",
+    marginBottom: 8,
+  },
   subtitle: {
     fontStyle: "italic",
     fontSize: "0.8rem",
   },
   input: {
-    marginTop: 8,
     lineHeight: "26px",
     borderRadius: 4,
     padding: "0 6px",
@@ -85,13 +88,13 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
 
   return (
     <div className={classNames(classes.calculatorRow, props.className)}>
-      {props.label && (
-        <label className={classes.label} htmlFor={props.id}>
-          {props.label}
-        </label>
-      )}
-      {props.subtitle && (
-        <span className={classes.subtitle}>{props.subtitle}</span>
+      {(props.label || props.subtitle) && (
+        <div className={classes.headerSection}>
+          {props.label && <label htmlFor={props.id}>{props.label}</label>}
+          {props.subtitle && (
+            <span className={classes.subtitle}>{props.subtitle}</span>
+          )}
+        </div>
       )}
       <input
         id={props.id}

@@ -147,7 +147,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       300, // throttle delay
       { leading: true, trailing: true }
     ),
-    [] // dependencies of the throttled function
+    []
   );
 
   useEffect(() => {
@@ -157,7 +157,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      deferralFactor / 100
+      isNaN(deferralFactor) ? 0 : deferralFactor / 100
     );
   }, [
     deferralFactor,
@@ -262,7 +262,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
             label="Deferral factor (%)"
             subtitle={
               <>
-                Lower values mean you are deferring to the market more, and
+                A lower values means you are deferring to the market more, so
                 taking less risk. This is equivalent to{" "}
                 <a
                   href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
