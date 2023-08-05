@@ -126,7 +126,6 @@ const MarketSection: React.FC<MarketSectionProps> = ({
     if (market.closeTime === undefined || market.closeTime < Date.now()) {
       pushError({
         key: "marketClosed",
-        code: "MARKET_CLOSED",
         message: "This market has closed.",
         severity: "error",
       });
@@ -138,7 +137,6 @@ const MarketSection: React.FC<MarketSectionProps> = ({
     if (market.mechanism !== "cpmm-1" || market.outcomeType !== "BINARY") {
       pushError({
         key: "marketNotCpmm",
-        code: "MARKET_NOT_CPMM",
         message: "Only YES/NO markets are supported.",
         severity: "error",
       });
