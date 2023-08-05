@@ -328,8 +328,7 @@ const calculateFreeResponsePositions = async (
 const buildUserModelInnerSupabaseApi = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
-  clearError: (key: string) => void = () => {},
-  placedBets: Bet[] = []
+  clearError: (key: string) => void = () => {}
 ): Promise<UserModel | undefined> => {
   const client = getSupabaseClient();
 
@@ -645,8 +644,7 @@ export const buildUserModel = async (
   manifoldUser: User,
   pushError: (error: ManifolioError) => void = () => {},
   clearError: (key: string) => void = () => {},
-  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {},
-  placedBets: Bet[] = []
+  setNumBetsLoaded: (numBetsLoaded: number) => void = () => {}
 ): Promise<UserModel | undefined> => {
   try {
     // return await buildUserModelInnerV0Api(
@@ -654,13 +652,11 @@ export const buildUserModel = async (
     //   pushError,
     //   clearError,
     //   setNumBetsLoaded,
-    //   placedBets
     // );
     return await buildUserModelInnerSupabaseApi(
       manifoldUser,
       pushError,
-      clearError,
-      placedBets
+      clearError
     );
   } catch (e) {
     logger.error(`Error building user model for ${manifoldUser.username}`, e);

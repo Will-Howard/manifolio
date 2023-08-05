@@ -3,14 +3,13 @@ import MarketSection from "@/components/MarketSection";
 import UserSection from "@/components/UserSection";
 import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
-import { getSupabaseClient } from "@/lib/manifold-supabase-api";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
 import { Bet } from "@/lib/vendor/manifold-sdk";
 import { Theme, petrona } from "@/styles/theme";
 import classNames from "classnames";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createUseStyles } from "react-jss";
 
 const COLUMN_MAX_WIDTH = "620px";
@@ -63,9 +62,6 @@ export default function Home() {
   const [marketInput, setMarketInput] = useLocalStorageState<
     string | undefined
   >("marketInput", undefined);
-  const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
-    string | undefined
-  >("apiKeyInput", undefined);
 
   const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(
@@ -76,7 +72,6 @@ export default function Home() {
   );
 
   const [refetchCounter, setRefetchCounter] = useState(0);
-  const [placedBets, setPlacedBets] = useState<Bet[]>([]);
 
   return (
     <>
@@ -113,7 +108,6 @@ export default function Home() {
               userModel={userModel}
               setUserModel={setUserModel}
               refetchCounter={refetchCounter}
-              placedBets={placedBets}
             />
             <hr className={classes.hr} />
             <MarketSection
@@ -126,16 +120,12 @@ export default function Home() {
             />
             <hr className={classes.hr} />
             <CalculatorSection
-              apiKeyInput={apiKeyInput}
-              setApiKeyInput={setApiKeyInput}
               authedUsername={authedUsername}
               setAuthedUsername={setAuthedUsername}
               setUsernameInput={setUsernameInput}
               userModel={userModel}
               marketModel={marketModel}
-              refetchCounter={refetchCounter}
               setRefetchCounter={setRefetchCounter}
-              setPlacedBets={setPlacedBets}
             />
           </div>
         </main>
