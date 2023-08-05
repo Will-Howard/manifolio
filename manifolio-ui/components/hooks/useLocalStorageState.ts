@@ -20,7 +20,7 @@ export function useLocalStorageState<T>(
     }
   }
 
-  const [storedValue, setStoredValue] = useState<T>(readValue);
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
   const setThrottledStoredValue = throttle(setStoredValue, throttleTime);
 
   function setValue(value: T | ((val: T) => T)): void {

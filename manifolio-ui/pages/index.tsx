@@ -5,7 +5,6 @@ import { ErrorProvider } from "@/components/hooks/useErrors";
 import { useLocalStorageState } from "@/components/hooks/useLocalStorageState";
 import { CpmmMarketModel } from "@/lib/market";
 import { UserModel } from "@/lib/user";
-import { Bet } from "@/lib/vendor/manifold-sdk";
 import { Theme, petrona } from "@/styles/theme";
 import classNames from "classnames";
 import Head from "next/head";
@@ -23,7 +22,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   centralColumn: {
     margin: "auto",
     maxWidth: COLUMN_MAX_WIDTH,
-    padding: "0 16px 16px 16px",
+    padding: "0 16px 48px 16px",
     "& a": {
       textDecoration: "none",
       fontWeight: 600,
@@ -97,8 +96,21 @@ export default function Home() {
             <h1 className={classes.title}>Manifolio</h1>
             <p className={classes.subtitle}>
               Bet size calculator for{" "}
-              <a href="https://manifold.markets/">Manifold</a>, read the docs{" "}
-              <a href="https://github.com/Will-Howard/manifolio/">here</a>
+              <a
+                href="https://manifold.markets/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Manifold
+              </a>
+              , read the docs{" "}
+              <a
+                href="https://github.com/Will-Howard/manifolio/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                here
+              </a>
             </p>
             <div className={classes.headerBorder} />
             <UserSection
