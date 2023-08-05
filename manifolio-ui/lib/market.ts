@@ -8,7 +8,7 @@ import {
 } from "./vendor/manifold-helpers";
 import { getSupabaseClient } from "./manifold-supabase-api";
 import logger from "@/logger";
-import { chunk } from "lodash";
+import { executeChunkedQueue } from "./utils";
 
 export class CpmmMarketModel {
   public market: FullMarket;
@@ -113,7 +113,6 @@ const buildCpmmMarketModelInnerSupabaseApi = async (
     .eq("data->>isCancelled", false)
     .eq("is_ante", false)
     .eq("is_redemption", false)
-    // Don't filter on expiresAt here, do it manaully because I don't trust null/undefined handling
     .limit(1000);
 
   const flattenedBets = (limitBets ?? []).map((bet) => bet?.data) as LimitBet[];
@@ -123,22 +122,23 @@ const buildCpmmMarketModelInnerSupabaseApi = async (
 
   const userIds = [...new Set(nonExpiredBets.map((bet) => bet.userId))];
 
-  // Split the userIds into chunks of 200
-  const userIdChunks = chunk(userIds, 200);
-
-  let users: { id: string; balance: string }[] = [];
-
-  for (const chunk of userIdChunks) {
+  // Define the function that fetches user data
+  const fetchUserData = async (
+    ids: string[]
+  ): Promise<{ id: string; balance: string }[]> => {
     const { data: chunkUsers } = await client
       .from("users")
       .select("id, data->>balance")
-      .in("id", chunk)
-      .limit(chunk.length);
+      .in("id", ids)
+      .limit(ids.length);
 
-    users = [...users, ...(chunkUsers ?? [])];
-  }
+    return chunkUsers ?? [];
+  };
 
-  const balanceByUserId = (users ?? []).reduce((acc, user) => {
+  // Fetch user data in chunks using executeChunkedQueue
+  const users = await executeChunkedQueue(fetchUserData, userIds);
+
+  const balanceByUserId = users.reduce((acc, user) => {
     try {
       if (user) {
         acc[user.id] = parseFloat(user.balance);

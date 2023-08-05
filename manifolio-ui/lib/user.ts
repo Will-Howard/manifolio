@@ -17,6 +17,7 @@ import { ManifolioError } from "@/components/ErrorMessage";
 import logger from "@/logger";
 import { getCpmmProbability } from "./vendor/manifold-helpers";
 import { getSupabaseClient, supabaseToV0Market } from "./manifold-supabase-api";
+import { executeChunkedQueue } from "./utils";
 
 let marketsEndpointEnabled = false;
 export const isMarketsEndpointEnabled = () => marketsEndpointEnabled;
@@ -340,7 +341,7 @@ const buildUserModelInnerSupabaseApi = async (
     .from("user_contract_metrics")
     .select()
     .eq("user_id", manifoldUser.id)
-    .limit(1000);
+    .limit(5000);
 
   const contractIds = [
     ...new Set(
@@ -354,24 +355,20 @@ const buildUserModelInnerSupabaseApi = async (
     (pos) => pos?.data?.contractId
   );
 
-  // Split contractIds into chunks of 200
-  const contractIdChunks = [];
-  for (let i = 0; i < contractIds.length; i += 200) {
-    contractIdChunks.push(contractIds.slice(i, i + 200));
-  }
-
-  let unresolvedMarketsRaw: any[] = [];
-
-  for (const chunk of contractIdChunks) {
+  const fetchMarkets = async (chunk: string[]) => {
     const { data: chunkMarkets } = await client
       .from("contracts")
       .select()
       .in("id", chunk)
       .eq("data->>isResolved", false)
       .limit(chunk.length);
+    return chunkMarkets ?? [];
+  };
 
-    unresolvedMarketsRaw = [...unresolvedMarketsRaw, ...(chunkMarkets ?? [])];
-  }
+  const unresolvedMarketsRaw = await executeChunkedQueue(
+    fetchMarkets,
+    contractIds
+  );
 
   const unresolvedMarkets = unresolvedMarketsRaw.map((m) =>
     supabaseToV0Market(m)
