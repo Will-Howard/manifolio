@@ -102,7 +102,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
         step={props.step}
         min={props.min}
         max={props.max}
-        value={displayValue}
+        value={displayValue ?? ""}
         placeholder={props.placeholder}
         readOnly={props.readOnly}
         disabled={props.disabled}

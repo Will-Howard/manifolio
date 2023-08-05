@@ -149,7 +149,7 @@ const UserSection: React.FC<UserSectionProps> = ({
       if (authedUsername && _user.username !== authedUsername) {
         pushError({
           key: "wrongUser",
-          message: `"${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}", but the recommendation given will be for "${username}".`,
+          message: `"${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}".`,
           severity: "warning",
         });
       }

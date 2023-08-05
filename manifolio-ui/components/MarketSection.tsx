@@ -14,6 +14,7 @@ import { Theme } from "@/styles/theme";
 import classNames from "classnames";
 import moment from "moment";
 import logger from "@/logger";
+import { formatInt } from "@/lib/utils";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -193,7 +194,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
 
     return (
       <span>
-        {position.payout.toFixed(0)}{" "}
+        {formatInt(position.payout)}{" "}
         <span
           className={classNames({
             [classes.red]: outcome === "NO",

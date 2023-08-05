@@ -58,6 +58,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
     cursor: "pointer",
     width: "fit-content",
     marginBottom: 8,
+    userSelect: "none",
   },
   arrow: {
     display: "inline-block",
