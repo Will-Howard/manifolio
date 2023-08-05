@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
@@ -8,6 +8,7 @@ import type { Theme } from "@/styles/theme";
 import classNames from "classnames";
 import { useErrors } from "./hooks/useErrors";
 import logger from "@/logger";
+import { useLocalStorageState } from "./hooks/useLocalStorageState";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -113,6 +114,9 @@ interface UserSectionProps {
   placedBets: Bet[];
 }
 
+const parseUsername = (usernameInput: string | undefined): string =>
+  usernameInput?.split("/").pop()?.replace("@", "") || "";
+
 const UserSection: React.FC<UserSectionProps> = ({
   usernameInput,
   setUsernameInput,
@@ -128,29 +132,23 @@ const UserSection: React.FC<UserSectionProps> = ({
   const [foundUser, setFoundUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | undefined>(undefined);
   const [numBetsLoaded, setNumBetsLoaded] = useState<number>(0);
+  const usernameInputRef = useRef<string | undefined>(usernameInput);
+
+  const loadedUsers = useRef<Record<string, User>>({});
+  const loadedUserModels = useRef<Record<string, UserModel>>({});
 
   const refetchCounterRef = React.useRef(refetchCounter);
 
-  // Fetch the user
-  useEffect(() => {
-    if (!usernameInput || usernameInput.length == 0) return;
-    if (
-      usernameInput === user?.username &&
-      refetchCounterRef.current === refetchCounter
-    ) {
-      setFoundUser(true);
-      return;
-    }
+  const updateDisplayUsers = () => {
+    const username = parseUsername(usernameInputRef.current);
 
-    const parsedUsername =
-      usernameInput.split("/").pop()?.replace("@", "") || "";
-
-    const tryFetchUser = async (username: string) => {
-      const _user = await fetchUser(username);
-      setFoundUser(!!_user);
-
-      if (!_user) return;
+    const _user = loadedUsers.current[username];
+    const _userModel = loadedUserModels.current[username];
+    if (_user && _user !== user) {
       setUser(_user);
+      setFoundUser(true);
+      setUserModel(_userModel);
+
       if (authedUsername && _user.username !== authedUsername) {
         pushError({
           key: "wrongUser",
@@ -161,7 +159,31 @@ const UserSection: React.FC<UserSectionProps> = ({
       if (authedUsername && _user.username === authedUsername) {
         clearError("wrongUser");
       }
-      setUserModel(undefined);
+    } else if (_userModel) {
+      setUserModel(_userModel);
+    }
+  };
+
+  // Fetch the user
+  useEffect(() => {
+    usernameInputRef.current = usernameInput;
+    if (!usernameInput || usernameInput.length == 0) return;
+    if (
+      usernameInput === user?.username &&
+      refetchCounterRef.current === refetchCounter
+    ) {
+      setFoundUser(true);
+      return;
+    }
+
+    const parsedUsername = parseUsername(usernameInput);
+
+    const tryFetchUser = async (username: string) => {
+      const _user = await fetchUser(username);
+
+      if (!_user) return;
+      loadedUsers.current[username] = _user;
+      updateDisplayUsers();
 
       const _userModel = await buildUserModel(
         _user,
@@ -170,20 +192,24 @@ const UserSection: React.FC<UserSectionProps> = ({
         setNumBetsLoaded,
         placedBets
       );
-      // TODO return errors from buildUserModel
-      setUserModel(_userModel);
+      if (!_userModel) return;
+
+      loadedUserModels.current[username] = _userModel;
+      updateDisplayUsers();
       refetchCounterRef.current = refetchCounter;
     };
     void tryFetchUser(parsedUsername);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    setUserModel,
     usernameInput,
     refetchCounter,
     authedUsername,
     user?.username,
-    userModel?.user?.username,
+    userModel?.user.username,
     placedBets,
+    updateDisplayUsers,
+    // pushError,
+    // clearError,
   ]);
 
   const userInputStatus = foundUser
