@@ -241,7 +241,6 @@ export function findRoot(
 
       const comparison = comparator(mid);
       if (Math.abs(comparison) < tolerance) {
-        logger.debug("Found root solution");
         return mid;
       } else if (comparison > 0) {
         max = mid;
@@ -279,8 +278,7 @@ export function findRoot(
     }
 
     if (Math.abs(xNext - x) < tolerance) {
-      // If the difference between x and xNext is less than the tolerance, we found a solution.
-      logger.debug("Found root solution");
+      // If the difference between x and xNext is less than the tolerance, we have found a solution.
       return xNext;
     }
 
@@ -413,13 +411,14 @@ export function calculateFullKellyBet({
     return (newShares - absBetEstimate) / absBetEstimate;
   };
 
+  // TODO combine this into dlogEVdBet by just integrating over a PMF with only one value
   /**
    * The derivative of the EV of the bet with respect to the bet amount, treating the bankroll
    * as fixed (i.e. not considering the variation in outcome of the user's other positions). This is
    * use below to calculate upper and lower bounds on the optimal bet before doing a more expensive
    * integration
    */
-  const dEVdBetFixedBankroll = (
+  const dlogEVdBetFixedBankroll = (
     betEstimate: number,
     effectiveRelativeIlliquidEV: number
   ) => {
@@ -484,7 +483,7 @@ export function calculateFullKellyBet({
    * This should give an optimal bet _lower_ than the actual optimum
    */
   const dEVdBetBalanceOnly = (betEstimate: number) =>
-    dEVdBetFixedBankroll(betEstimate, -relativeLoans);
+    dlogEVdBetFixedBankroll(betEstimate, -relativeLoans);
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
@@ -496,14 +495,14 @@ export function calculateFullKellyBet({
    * than the other way around.
    */
   const dEVdBetIlliquidCashedOut = (betEstimate: number) =>
-    dEVdBetFixedBankroll(betEstimate, relativeIlliquidEV - relativeLoans);
+    dlogEVdBetFixedBankroll(betEstimate, relativeIlliquidEV - relativeLoans);
 
   /**
    * The derivative of the EV of the bet with respect to the bet amount, considering the
    * user's balance and modelling the range of outcomes of the illiquid investments. This should
    * give the true optimal bet, and be between the other two values
    */
-  const dEVdBet = (betEstimate: number) => {
+  const dlogEVdBet = (betEstimate: number) => {
     // Bad things happen if the bet estimate is exactly 0
     if (betEstimate === 0) {
       betEstimate = 1e-3;
@@ -734,7 +733,7 @@ export function calculateFullKellyBet({
     (a, b) => a - b
   );
   const optimalBet = findRoot(
-    dEVdBet,
+    dlogEVdBet,
     Math.max(bounds[0], -absoluteBound),
     Math.min(bounds[1], absoluteBound),
     "binary"
@@ -787,7 +786,6 @@ export function calculateFullKellyBet({
     newShares: shares,
     pAfter: pAfter ?? 0,
     positionAfter,
-    marketDeferralProb,
     logWealthGain,
     wealthGain,
   };
@@ -853,7 +851,8 @@ function getBetRecommendationInner({
 
   // annualTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average annual return
   // relative to your entire bankroll?". In other words, if you are putting all your eggs in one basket, then this will be
-  // your net annual return. Note that for a single market annualTotalRoi is strictly less than annualRoi.
+  // your net annual return. Note that for a single market (with no existing position!) annualTotalRoi should be strictly less
+  // than annualRoi.
   //
   // Relatedly, if you find a market with an annualTotalRoi greater than the annualRoi of other markets, then you should almost
   // certainly pull money out of the other markets and put it into the first. Because even if you _only_ bet in that market
