@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { UserModel } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { BetRecommendationFull, getBetRecommendation } from "@/lib/calculate";
 import logger from "@/logger";
-import { throttle } from "lodash";
 import { createUseStyles } from "react-jss";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import { Classes } from "jss";
@@ -12,6 +11,7 @@ import { useErrors } from "./hooks/useErrors";
 import { CpmmMarketModel } from "@/lib/market";
 import PlaceBetSection from "./PlaceBetSection";
 import classNames from "classnames";
+import useThrottle from "./hooks/useThrottle";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -109,7 +109,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
   const { pushError, clearError } = useErrors();
 
   const [probabilityInput, setProbabilityInput] = useLocalStorageState(
-    "probabilityInput",
+    "probability",
     50
   );
   const [deferralFactor, setDeferralFactor] = useLocalStorageState<number>(
@@ -125,30 +125,26 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
   const estimatedProb = probabilityInput / 100;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const getBetRecommendationThrottled = useCallback(
-    throttle(
-      (
-        marketModel: CpmmMarketModel,
-        userModel: UserModel,
-        estimatedProb: number,
-        deferenceFactor: number
-      ) => {
-        const kellyWithPortfolioOptimalBet = getBetRecommendation({
-          estimatedProb,
-          deferenceFactor,
-          marketModel,
-          userModel,
-          pushError,
-          clearError,
-        });
+  const getBetRecommendationThrottled = useThrottle(
+    (
+      marketModel: CpmmMarketModel,
+      userModel: UserModel,
+      estimatedProb: number,
+      deferenceFactor: number
+    ) => {
+      const kellyWithPortfolioOptimalBet = getBetRecommendation({
+        estimatedProb,
+        deferenceFactor,
+        marketModel,
+        userModel,
+        pushError,
+        clearError,
+      });
 
-        setBetRecommendation(kellyWithPortfolioOptimalBet);
-      },
-      300, // throttle delay
-      { leading: true, trailing: true }
-    ),
-    []
+      setBetRecommendation(kellyWithPortfolioOptimalBet);
+    },
+    300, // throttle delay
+    { leading: true, trailing: true }
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { UserModel, buildUserModel, fetchUser } from "@/lib/user";
 import { InputField } from "@/components/InputField";
 import { createUseStyles } from "react-jss";
@@ -136,7 +136,7 @@ const UserSection: React.FC<UserSectionProps> = ({
 
   const refetchCounterRef = React.useRef(refetchCounter);
 
-  const updateDisplayUsers = () => {
+  const updateDisplayUsers = useCallback(() => {
     const username = parseUsername(usernameInputRef.current);
 
     const _user = loadedUsers.current[username];
@@ -145,21 +145,10 @@ const UserSection: React.FC<UserSectionProps> = ({
       setUser(_user);
       setFoundUser(true);
       setUserModel(_userModel);
-
-      if (authedUsername && _user.username !== authedUsername) {
-        pushError({
-          key: "wrongUser",
-          message: `"${username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}".`,
-          severity: "warning",
-        });
-      }
-      if (authedUsername && _user.username === authedUsername) {
-        clearError("wrongUser");
-      }
     } else if (_userModel) {
       setUserModel(_userModel);
     }
-  };
+  }, [setUserModel, user]);
 
   // Fetch the user
   useEffect(() => {
@@ -197,7 +186,6 @@ const UserSection: React.FC<UserSectionProps> = ({
       updateDisplayUsers();
     };
     void tryFetchUser(parsedUsername);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     usernameInput,
     refetchCounter,
@@ -205,9 +193,24 @@ const UserSection: React.FC<UserSectionProps> = ({
     user?.username,
     userModel?.user.username,
     updateDisplayUsers,
-    // pushError,
-    // clearError,
+    pushError,
+    clearError,
   ]);
+
+  useEffect(() => {
+    if (!authedUsername || !user) return;
+
+    if (authedUsername && user.username !== authedUsername) {
+      pushError({
+        key: "wrongUser",
+        message: `"${user.username}" is not the user associated with the API key, which is "${authedUsername}". If you place a bet you will be betting as "${authedUsername}".`,
+        severity: "warning",
+      });
+    }
+    if (authedUsername && user.username === authedUsername) {
+      clearError("wrongUser");
+    }
+  }, [authedUsername, pushError, clearError, user]);
 
   const userInputStatus = foundUser
     ? "success"
