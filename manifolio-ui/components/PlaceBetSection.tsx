@@ -223,6 +223,7 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
       marketId: marketModel.market.id,
       outcome: betOutcome,
       apiKey: apiKeyInput,
+      username: authedUsername,
     };
 
     const res = await fetch("/api/bet", {
@@ -242,9 +243,10 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
     setRecentlyBet(false);
   }, [
     apiKeyInput,
+    authedUsername,
     betAmount,
     betOutcome,
-    marketModel?.market?.id,
+    marketModel?.market.id,
     setRefetchCounter,
   ]);
 
