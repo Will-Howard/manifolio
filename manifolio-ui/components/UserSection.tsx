@@ -235,7 +235,7 @@ const UserSection: React.FC<UserSectionProps> = ({
           label={<strong>User</strong>}
           id="usernameInput"
           type="text"
-          placeholder="Url or username"
+          placeholder='e.g "jack" or "https://manifold.markets/jack"'
           value={usernameInput}
           onChange={(e) => setUsernameInput(e.target.value)}
           status={userInputStatus}
