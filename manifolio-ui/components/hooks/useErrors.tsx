@@ -1,4 +1,10 @@
-import React, { ReactNode, createContext, useContext, useState } from "react";
+import React, {
+  ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 
 export type ManifolioError = {
   key: string;
@@ -17,17 +23,17 @@ const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
 const useErrorsInternal = (): ErrorContextType => {
   const [errors, setErrors] = useState<ManifolioError[]>([]);
 
-  const pushError = (error: ManifolioError) => {
+  const pushError = useCallback((error: ManifolioError) => {
     // Don't allow duplicate errors
     setErrors((errors) => {
       const newErrors = errors.filter((e) => e.key !== error.key);
       return [...newErrors, error];
     });
-  };
+  }, []);
 
-  const clearError = (key: string) => {
+  const clearError = useCallback((key: string) => {
     setErrors((errors) => errors.filter((error) => error.key !== key));
-  };
+  }, []);
 
   return { errors, pushError, clearError };
 };

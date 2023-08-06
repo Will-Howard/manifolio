@@ -57,10 +57,10 @@ export default function Home() {
 
   const [usernameInput, setUsernameInput] = useLocalStorageState<
     string | undefined
-  >("usernameInput", undefined);
+  >("username", undefined);
   const [marketInput, setMarketInput] = useLocalStorageState<
     string | undefined
-  >("marketInput", undefined);
+  >("market", undefined);
 
   const [userModel, setUserModel] = useState<UserModel | undefined>(undefined);
   const [marketModel, setMarketModel] = useState<CpmmMarketModel | undefined>(

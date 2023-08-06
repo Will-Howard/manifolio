@@ -140,7 +140,7 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
 
   const [apiKeyInput, setApiKeyInput] = useLocalStorageState<
     string | undefined
-  >("apiKeyInput", undefined);
+  >("apiKey", undefined);
 
   const resetEditableFields = useCallback(() => {
     setEditableAmount(undefined);
@@ -177,13 +177,11 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
 
       logger.info("Fetched authenticated user:", authedUsername);
       setAuthedUsername(authedUsername);
-      setUsernameInput(authedUsername);
+      // Set this as the actual user if they haven't set a username yet
+      setUsernameInput((prev) => prev || authedUsername);
     };
     void tryFetchUser(apiKeyInput);
-
-    // FIXME setUsernameInput causes rerender if added as a dependency. This is likely a bug in useLocalStorageState
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKeyInput]);
+  }, [apiKeyInput, authedUsernameFound, setAuthedUsername, setUsernameInput]);
 
   const apiKeyInputStatus = authedUsernameFound
     ? "success"

@@ -34,13 +34,14 @@ const isEmpty = (obj: Record<string, unknown>) => Object.keys(obj).length === 0;
 const log = (message: string) => {
   if (process.env.NODE_ENV === "production") return;
 
-  // logger.info(message);
+  logger.debug(message);
 };
 
 const logError = (message: Error) => {
   if (process.env.NODE_ENV === "production") return;
 
-  console.error(message);
+  // These errors are mostly expected, so don't log them
+  // console.error(message);
 };
 
 export const wrappedFetch = async <RetVal>(
@@ -58,11 +59,11 @@ export const wrappedFetch = async <RetVal>(
         resp
       );
       logError(error);
-      throw error;
+      // throw error;
     } else {
       const error = new ManifoldError(resp.status, resp.text(), resp);
       logError(error);
-      throw error;
+      // throw error;
     }
   }
 
