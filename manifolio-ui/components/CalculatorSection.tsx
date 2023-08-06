@@ -143,7 +143,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
 
       setBetRecommendation(kellyWithPortfolioOptimalBet);
     },
-    300, // throttle delay
+    500, // throttle delay
     { leading: true, trailing: true }
   );
 
@@ -222,7 +222,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           classes={classes}
         />
         <Detail
-          label="Annual return from a portfolio of similar bets"
+          label="Annual return if you made many bets like this"
           value={formatRoi(betRecommendation?.annualRoi)}
           classes={classes}
         />
