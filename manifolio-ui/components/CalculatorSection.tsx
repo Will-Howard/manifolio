@@ -264,7 +264,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
                 <a
                   href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="noopener"
                 >
                   &quot;fractional Kelly betting&quot;
                 </a>

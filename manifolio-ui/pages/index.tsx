@@ -99,7 +99,7 @@ export default function Home() {
               <a
                 href="https://manifold.markets/"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
               >
                 Manifold
               </a>
@@ -107,7 +107,7 @@ export default function Home() {
               <a
                 href="https://github.com/Will-Howard/manifolio/"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
               >
                 here
               </a>

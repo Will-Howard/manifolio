@@ -328,11 +328,23 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
       </div>
       <div className={classes.executeBetRow}>
         <InputField
-          label="API key"
+          label={
+            <>
+              API key (found{" "}
+              <a
+                href="https://manifold.markets/profile"
+                target="_blank"
+                rel="noopener"
+              >
+                here
+              </a>
+              )
+            </>
+          }
           id="apiKeyInput"
-          placeholder='Find in "Edit Profile" on Manifold'
           status={apiKeyInputStatus}
           type="text"
+          placeholder='e.g. "7373176d-01c5-4318-a21b-8ae7cb24caa7"'
           value={apiKeyInput}
           onChange={(e) => setApiKeyInput(e.target.value)}
           className={classNames(classes.inputField, classes.apiKeyInput)}
