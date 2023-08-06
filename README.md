@@ -4,6 +4,14 @@ Bet size calculator for YES/NO questions on [manifold markets](https://manifold.
 
 [Go to site.](https://manifol.io/)
 
+**Basic usage**
+
+![Manifolio Screenshot](images/screenshot.png)
+
+Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
+
+You can put in your manifold API key (found [here](https://manifold.markets/profile)) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+
 ## Table of Contents
 1. [Guide](#guide)
 2. [Acknowledgements](#acknowledgements)
@@ -42,14 +50,6 @@ So you're basically saying to it "Suppose I have one more action I can take on t
 
 ### Usage instructions
 
-![Manifolio Screenshot](images/screenshot.png)
-
-**Basic usage**
-
-Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
-
-You can put in your manifold API key (found [here](https://manifold.markets/profile)) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
-
 **Deferral factor**
 
 There is also a **deferral factor** field in "Advanced options", which I would recommend you use (or at least I would recommend you leave it around 50%, which is the default).
@@ -64,7 +64,7 @@ The "Annual return" numbers are very important. The calculation comes up with th
 
 The **"Annual return if you made many bets like this"** number is simply the _expected_ (not log) return of the bet as an annualised percentage. It's the answer to the question "Suppose you found 1000 bets like this one and spread all your money across them, such that any variation gets averaged over to 0, what would your return be?". If you are betting on fairly illiquid markets then this is the more important number to look at, because the return from any one market will be quite small so you will have to rely on averaging over many of them.
 
-_(Note: this number can be negative if you already have a position in the market which is in the right direction but too large (and possibly in other scenarios). This is technically correct, because it will tell you to bet in the opposite direction to sacrifice some expected value in return for an increase in expected log value. This is pretty confusing though, as the whole thought experiment "suppose you found 1000 bets like this" breaks down if you are also supposing that all these bets are on markets that you already have a large position in.)_
+_(Note: this number can be negative if you already have a position in the market which is in the right direction but too large (and possibly in other scenarios). This is technically correct, because it will tell you to bet in the opposite direction to sacrifice some expected value in return for an increase in expected log value. This is pretty confusing though, as the whole thought experiment of "suppose you found 1000 bets like this" breaks down if you are also supposing that all these bets are on markets you have a large position in already.)_
 
 The **"Annual return if this were your only bet"** number is the expected log return of your entire portfolio as a result of the recommended bet (also as an annualised percentage). This is the number that the calculator is trying to maximise.
 
