@@ -10,7 +10,7 @@ Bet size calculator for YES/NO questions on [manifold markets](https://manifold.
 
 Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
 
-You can put in your manifold API key (found [here](https://manifold.markets/profile)) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+You can put in your manifold API key (found [here](https://manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
 
 ## Table of Contents
 1. [Guide](#guide)
@@ -18,7 +18,7 @@ You can put in your manifold API key (found [here](https://manifold.markets/prof
 
 ## Guide
 
-For the uninitiated, the Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
+The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
 
 - Over the long run, it is guaranteed to outperform any other strategy at a given percentile of wealth. I.e. the median outcome of someone using the Kelly criterion will beat the median outcome of someone with the same beliefs using any other strategy, and so will the 99th percentile outcome.
 - Given a specific wealth goal, it minimises the expected time to reach that goal compared to any other strategy.
