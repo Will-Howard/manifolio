@@ -1,6 +1,6 @@
 # Manifolio
 
-Bet size calculator for YES/NO questions on [manifold markets](https://manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log(wealth).
+Bet size calculator for YES/NO questions on [Manifold markets](https://Manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log(wealth).
 
 [Go to site.](https://manifol.io/)
 
@@ -10,7 +10,7 @@ Bet size calculator for YES/NO questions on [manifold markets](https://manifold.
 
 Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
 
-You can put in your manifold API key (found [here](https://manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
 
 ## Table of Contents
 1. [Guide](#guide)
@@ -33,7 +33,7 @@ f = p - q / b
  - q - 1 - p
  - b - The odds of the market, in terms of "[english odds](https://www.investopedia.com/articles/investing/042115/betting-basics-fractional-decimal-american-moneyline-odds.asp)" in this case
 
-This doesn't work that well on manifold or other prediction markets, because:
+This doesn't work that well on Manifold or other prediction markets, because:
  - A lot of markets are quite thinly traded, so the odds move a lot in response to your bet.
  - You bet on several things at the same time, so you don't have a fixed bankroll. You have a balance, plus a portfolio of other bets with have a range of possible outcomes.
 
@@ -46,7 +46,7 @@ The exact calculation it's doing is maximising expected log wealth, assuming:
  - Your estimated probability is correct (accounting for the deferral factor, see below)
  - For all the other markets in your portfolio, the market probability is correct, and you will wait for them to resolve
 
-So you're basically saying to it "Suppose I have one more action I can take on this earth, which is to bet on this specific market. After this I will walk away and wait until the end of time for every manifold market to resolve. What sized bet should I make to maximise my expected log wealth in this scenario?"
+So you're basically saying to it "Suppose I have one more action I can take on this earth, which is to bet on this specific market. After this I will walk away and wait until the end of time for every Manifold market to resolve. What sized bet should I make to maximise my expected log wealth in this scenario?"
 
 ### Advanced usage
 
@@ -54,7 +54,7 @@ So you're basically saying to it "Suppose I have one more action I can take on t
 
 There is also a **deferral factor** field in "Advanced options", which I would recommend you use (or at least I would recommend you leave it around 50%, which is the default).
 
-When people use the Kelly formula in practice, they usually bet [some fixed fraction](https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly) of the recommended amount to be more risk averse. The deferral factor is exactly equivalent to this. If a market had enough liquidity that the odds were effectively fixed, then a deferral factor of 50% would correspond to betting 50% of the Kelly formula amount.
+When people use the Kelly formula in practice, they usually bet [some fixed fraction](https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly) of the recommended amount to be more risk averse. The deferral factor is exactly equivalent to this fraction. If a market had enough liquidity that the odds were effectively fixed, then a deferral factor of 50% would correspond to betting 50% of the Kelly formula amount.
 
 The """bayesian""" interpretation of this number is that you are factoring in some chance that the market is right and you are wrong, so a deferral factor of 10% means you think there is a 10% chance you are right and a 90% that the market is right*. Or, equivalently again, that the actual probability to use in the calculation is 10% of the way from the market's estimate to your estimate. If this is all too confusing just remember that setting it to 100% can cause you to lose money by being overconfident, so you should probably leave it at some middling value.
 
@@ -71,9 +71,9 @@ The **"Annual return if this were your only bet"** number is the expected log re
 ### Things to watch out for/known issues
 
  - Selling positions is handled by buying the opposite side. So if you have YES shares in a market and you are now predicting a much lower probability, it will tell you to buy NO. This is equivalent to selling YES shares, and you do in fact get mana back when you do this. 1 NO + 1 YES share cancel out to produce M1.
- - The portfolio value and total loans might be off relative to what is in the manifold UI. I think just this is due to caching issues, it should never be off by too much.
+ - The portfolio value and total loans might be off relative to what is in the Manifold UI. I think just this is due to caching issues, it should never be off by too much.
  - Currently it doesn't account for "Free response" or "Multiple choice" markets properly when simulating the range of possible outcomes, it just treats them as cash equal to their expected value. If you have a lot of money in these markets this will means the recommendation will be a bit too high (because it's ignoring some risk).
- - Complications related to the manifold loan system: If you have outstanding loans greater than your total balance, the technically correct thing to do is to bet M0. This is because log(0) is negative infinity, so any chance of ending up with 0 net worth gets an infinite penalty when maximising log wealth. This is pretty conservative though, as the chance of this happening can be vanishingly small if you have a reasonably diversified portfolio. If it were to follow this then for most power users it would recommend a bet of 0 which would rather defeat the point. Instead, I have made it treat the worst cast as the _worst outcome that it actually simulates_ (out of 50,000 simulations), rather than the actual worst _possible_ case (which is every bet resolving against you).
+ - Complications related to the Manifold loan system: If you have outstanding loans greater than your total balance, the technically correct thing to do is to bet nothing. This is because log(0) is negative infinity, so any chance of ending up with 0 net worth gets an infinite penalty when maximising log wealth. This is pretty conservative though, as the chance of this happening can be vanishingly small if you have a reasonably diversified portfolio. If it were to follow this then for most power users it would recommend a bet of 0 which would rather defeat the point. Instead, I have made it treat the worst case as the _worst outcome that it actually simulates_ (out of 50,000 simulations), rather than the actual worst _possible_ case (which is every bet resolving against you).
 
 <!-- ## Local setup
 
@@ -88,7 +88,7 @@ yarn dev
 There are just two environment variables you might want to set (in a `.env` file or otherwise):
 ```
 NEXT_PUBLIC_LOG_LEVEL=debug # "debug" | "info" | "warn" | "error", not yet used very consistently
-NEXT_PUBLIC_MANIFOLD_API_URL=http://localhost:3000 # or e.g. https://dev.manifold.markets
+NEXT_PUBLIC_Manifold_API_URL=http://localhost:3000 # or e.g. https://dev.Manifold.markets
 ```
 
 These are the `node` and `yarn` versions I'm using in case you run into trouble:
@@ -101,7 +101,7 @@ $ yarn -v
 
 ## Acknowledgements
 
-Thanks to the people who kindly funded this project on [Manifund](https://manifund.org/projects/a-tool-for-making-well-sized-kelly-optimal-bets-on-manifold?tab=shareholders):
+Thanks to the people who kindly funded this project on [Manifund](https://manifund.org/projects/a-tool-for-making-well-sized-kelly-optimal-bets-on-Manifold?tab=shareholders):
  - Patrick Purvis
  - Domenic Denicola
  - Tyler Heishman
