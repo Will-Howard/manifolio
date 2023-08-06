@@ -1,6 +1,6 @@
 # Manifolio
 
-Bet size calculator for YES/NO questions on [manifold markets](https://manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log wealth.
+Bet size calculator for YES/NO questions on [manifold markets](https://manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log(wealth).
 
 [Go to site.](https://manifol.io/)
 
