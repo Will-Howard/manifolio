@@ -72,22 +72,37 @@ export default function Home() {
 
   const [refetchCounter, setRefetchCounter] = useState(0);
 
+  const title = "Manifolio";
+  const description = "Bet size calculator for Manifold Markets";
+  const cardImage = "https://manifol.io/book.png";
+
   return (
     <>
       <Head>
-        <title>Manifolio</title>
+        <title>{title}</title>
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1"
         />
+
+        {/* General tags */}
+        <meta name="description" content={description} />
+        <meta name="image" content={cardImage} />
+
+        {/* OpenGraph tags */}
+        <meta property="og:url" content="https://manifol.io/" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={cardImage} />
+        <meta property="og:type" content="website" />
+
+        {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:creator" content="@__Will_Howard__" />
-        <meta name="twitter:title" content="Manifolio" />
-        <meta
-          name="description"
-          content="Bet sizing tool for Manifold Markets"
-        />
-        <meta name="twitter:image" content="https://manifol.io/book.png" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={cardImage} />
+
         <link rel="icon" href="/book.svg" />
       </Head>
       <ErrorProvider>
