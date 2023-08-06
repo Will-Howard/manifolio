@@ -48,7 +48,7 @@ The exact calculation it's doing is maximising expected log wealth, assuming:
 
 So you're basically saying to it "Suppose I have one more action I can take on this earth, which is to bet on this specific market. After this I will walk away and wait until the end of time for every manifold market to resolve. What sized bet should I make to maximise my expected log wealth in this scenario?"
 
-### Usage instructions
+### Advanced usage
 
 **Deferral factor**
 
