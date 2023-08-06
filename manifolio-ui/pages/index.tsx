@@ -87,7 +87,7 @@ export default function Home() {
           name="description"
           content="Bet sizing tool for Manifold Markets"
         />
-        <meta name="twitter:image" content="https://manifol.io/book.svg" />
+        <meta name="twitter:image" content="https://manifol.io/book.png" />
         <link rel="icon" href="/book.svg" />
       </Head>
       <ErrorProvider>
