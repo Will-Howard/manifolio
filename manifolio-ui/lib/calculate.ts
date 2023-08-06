@@ -358,7 +358,10 @@ export function calculateFullKellyBet({
   userModel: UserModel;
   pushError?: (error: ManifolioError) => void;
   clearError?: (key: string) => void;
-}): BetRecommendation & { marketDeferralProb: number } {
+}): BetRecommendation & {
+  logWealthGain: number;
+  wealthGain: number;
+} {
   const currentPosition = userModel.getPosition(marketModel.market.id);
 
   const yesShares =
@@ -563,6 +566,99 @@ export function calculateFullKellyBet({
     return integral;
   };
 
+  /**
+   * The actual log ev
+   */
+  const logEV = (betEstimate: number) => {
+    // Bad things happen if the bet estimate is exactly 0
+    if (betEstimate === 0) {
+      betEstimate = 1e-3;
+    }
+
+    const relativeBetEstimate = betEstimate / balance;
+
+    const fYes = Math.max(relativeBetEstimate, 0);
+    const fNo = Math.max(-relativeBetEstimate, 0);
+
+    const absBetEstimate = Math.abs(betEstimate);
+
+    const bYes = fYes && englishOdds(absBetEstimate, "YES");
+    const bNo = fNo && englishOdds(absBetEstimate, "NO");
+
+    const integrand = (payout: number) => {
+      const I = payout / balance - relativeLoans;
+
+      if (
+        Math.min(
+          1 + I + sYes + fYes * bYes - fNo,
+          1 + I + sNo + fNo * bNo - fYes
+        ) < 0
+      ) {
+        throw new Error(
+          "Net worth is negative in calculation, something has gone horribly wrong"
+        );
+      }
+
+      // EV = p ln(1 + I + sYes + fYes * bYes - fNo) + q ln(1 + I + sNo + fNo * bNo - fYes)
+      const A = Math.log(1 + I + sYes + fYes * bYes - fNo);
+      const B = Math.log(1 + I + sNo + fNo * bNo - fYes);
+
+      const result = pYes * A + qYes * B;
+      return result;
+    };
+
+    const integral = integrateOverPmf(integrand, illiquidPmf);
+
+    // Add the log of the balance to the integral to make this absolute rather than relative
+    return integral + Math.log(balance);
+  };
+
+  /**
+   * The actual non-log ev
+   */
+  const EV = (betEstimate: number) => {
+    // Bad things happen if the bet estimate is exactly 0
+    if (betEstimate === 0) {
+      betEstimate = 1e-3;
+    }
+
+    const relativeBetEstimate = betEstimate / balance;
+
+    const fYes = Math.max(relativeBetEstimate, 0);
+    const fNo = Math.max(-relativeBetEstimate, 0);
+
+    const absBetEstimate = Math.abs(betEstimate);
+
+    const bYes = fYes && englishOdds(absBetEstimate, "YES");
+    const bNo = fNo && englishOdds(absBetEstimate, "NO");
+
+    const integrand = (payout: number) => {
+      const I = payout / balance - relativeLoans;
+
+      if (
+        Math.min(
+          1 + I + sYes + fYes * bYes - fNo,
+          1 + I + sNo + fNo * bNo - fYes
+        ) < 0
+      ) {
+        throw new Error(
+          "Net worth is negative in calculation, something has gone horribly wrong"
+        );
+      }
+
+      // EV = p ln(1 + I + sYes + fYes * bYes - fNo) + q ln(1 + I + sNo + fNo * bNo - fYes)
+      const A = 1 + I + sYes + fYes * bYes - fNo;
+      const B = 1 + I + sNo + fNo * bNo - fYes;
+
+      const result = pYes * A + qYes * B;
+      return result;
+    };
+
+    const integral = integrateOverPmf(integrand, illiquidPmf);
+
+    return integral * balance;
+  };
+
   const balanceOnlyBound = (balance - userModel.loans) * 0.99;
   const absoluteBound = Math.min(
     balanceOnlyBound + Math.min(...illiquidPmf.keys()) * 0.99,
@@ -666,11 +762,23 @@ export function calculateFullKellyBet({
     cash: netCash,
   };
 
+  // Calculate the gain in expected log wealth
+  const logWealthBefore = logEV(0);
+  const logWealthAfter = logEV(optimalBet);
+  const logWealthGain = logWealthAfter - logWealthBefore;
+
+  // Calculate the gain in expected wealth
+  const wealthBefore = EV(0);
+  const wealthAfter = EV(optimalBet);
+  const wealthGain = wealthAfter - wealthBefore;
+
   logger.debug({
     optimalBetBalanceOnly,
     optimalBet,
     optimalBetCashedOut,
     positionAfter,
+    logWealthGain,
+    wealthGain,
   });
 
   return {
@@ -680,6 +788,8 @@ export function calculateFullKellyBet({
     pAfter: pAfter ?? 0,
     positionAfter,
     marketDeferralProb,
+    logWealthGain,
+    wealthGain,
   };
 }
 
@@ -704,7 +814,8 @@ function getBetRecommendationInner({
     newShares,
     pAfter,
     positionAfter,
-    marketDeferralProb,
+    logWealthGain,
+    wealthGain,
   } = calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
@@ -721,58 +832,44 @@ function getBetRecommendationInner({
       newShares,
       pAfter,
       positionAfter,
-      annualRoi: 0,
-      annualTotalRoi: 0,
+      annualRoi: 1,
+      annualTotalRoi: 1,
     };
   }
 
   const timeToCloseYears =
     (marketModel.market.closeTime - Date.now()) / (1000 * 60 * 60 * 24 * 365);
 
-  const myPYes =
-    estimatedProb * deferenceFactor +
-    (1 - deferenceFactor) * marketDeferralProb;
+  // annualRoi is the answer to the question "Suppose you found 1000 bets like this one and spread your money across
+  // them, what would your expected return be?". If you are spreading your bets thinly across many markets, then your net gain
+  // in expected log wealth will be approximately the log of your expected (fractional) gain in wealth, because
+  // any variation will average out
+  //
+  // amount + wealthGain = amount * annualRoi ^ timeToCloseYears
+  // => annualRoi = exp(ln((amount + wealthGain) / amount) / timeToCloseYears)
+  const annualRoiNew = Math.exp(
+    Math.log((amount + wealthGain) / amount) / timeToCloseYears
+  );
 
-  const currentPosition = userModel.getPosition(marketModel.market.id);
-  let positionEVBefore = 0;
-
-  if (currentPosition) {
-    const currentPWin = currentPosition.outcome === "YES" ? myPYes : 1 - myPYes;
-    positionEVBefore = currentPosition.payout * currentPWin;
-  }
-
-  const { yesShares, noShares, cash } = positionAfter;
-  const positionEVAfter = myPYes * yesShares + (1 - myPYes) * noShares + cash;
-  const deltaEV = positionEVAfter - positionEVBefore;
-
-  // annualRoi is the answer to the question "Suppose you and 100 of your friends made this bet on independent but otherwise
-  // identical markets, and then pooled all your winnings at the end. What would your average return be?". In other
-  // words, if you are spreading your bets thinly across many markets, then your net daily return will be approximately
-  // the average of the dailyRoi of each bet. Also note that this is always a calculation for THIS bet, even if you have an
-  // existing position.
-
-  const annualRoi = Math.exp(Math.log(deltaEV / amount) / timeToCloseYears);
-
-  // annualTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average daily return
+  // annualTotalRoi is the answer to the question "Suppose this is the only bet you make, what is the average annual return
   // relative to your entire bankroll?". In other words, if you are putting all your eggs in one basket, then this will be
-  // your net daily return. Note that for a single market annualTotalRoi is strictly less than annualRoi.
+  // your net annual return. Note that for a single market annualTotalRoi is strictly less than annualRoi.
   //
   // Relatedly, if you find a market with an annualTotalRoi greater than the annualRoi of other markets, then you should almost
   // certainly pull money out of the other markets and put it into the first. Because even if you _only_ bet in that market
   // from now on, you will still make more money than you would have if you had kept your money more spread around.
-  const evLessPositionBefore = userModel.portfolioEV - positionEVBefore;
-  const totalYesEV = evLessPositionBefore + yesShares + cash - amount;
-  const totalNoEV = evLessPositionBefore + noShares + cash - amount;
+  //
+  // logWealthGain = ln(wealthFinal / wealthInitial)
+  // wealthFinal = wealthInitial * annualTotalRoi ^ timeToCloseYears
+  // => logWealthGain = ln(annualTotalRoi ^ timeToCloseYears)
+  // => annualTotalRoi = exp(logWealthGain / timeToCloseYears)
+  const annualTotalRoiNew = Math.exp(logWealthGain / timeToCloseYears);
 
-  const logEV =
-    myPYes * Math.log(totalYesEV) + (1 - myPYes) * Math.log(totalNoEV);
-  // logEV = Math.log(portfolioEV * dailyTotalRoi ^ timeToCloseDays) == Math.log(portfolioEV) + timeToCloseDays * Math.log(dailyTotalRoi)
-  // => dailyTotalRoi = Math.exp((logEV - Math.log(portfolioEV)) / timeToCloseDays)
-  const annualTotalRoi = Math.exp(
-    (logEV - Math.log(userModel.portfolioEV)) / timeToCloseYears
-  );
-
-  logger.debug({ timeToCloseYears, annualRoi, annualTotalRoi });
+  logger.debug({
+    timeToCloseYears,
+    annualRoiNew,
+    annualTotalRoiNew,
+  });
 
   return {
     amount,
@@ -780,8 +877,8 @@ function getBetRecommendationInner({
     newShares: newShares,
     pAfter,
     positionAfter,
-    annualRoi: amount < 1 ? 1 : annualRoi,
-    annualTotalRoi: amount < 1 ? 1 : annualTotalRoi,
+    annualRoi: amount < 1 ? 1 : annualRoiNew,
+    annualTotalRoi: amount < 1 ? 1 : annualTotalRoiNew,
   };
 }
 
