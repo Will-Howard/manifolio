@@ -55,6 +55,7 @@ interface InputFieldProps {
   max?: string;
   value: string | number | readonly string[] | undefined;
   placeholder?: string;
+  ariaLabel?: string;
   readOnly?: boolean;
   disabled?: boolean;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -121,6 +122,7 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
           max={props.max}
           value={displayValue ?? ""}
           placeholder={props.placeholder}
+          aria-label={props.ariaLabel}
           readOnly={props.readOnly}
           disabled={props.disabled}
           onChange={handleInputChange}
