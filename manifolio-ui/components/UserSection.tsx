@@ -225,7 +225,9 @@ const UserSection: React.FC<UserSectionProps> = ({
   const displayPortfolioEV =
     userModel?.portfolioEV ??
     // profit = portfolioEV - totalDeposits => portfolioEV = profit + totalDeposits
-    (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0);
+    (user
+      ? (user?.profitCached?.allTime ?? 0) + (user?.totalDeposits ?? 0)
+      : undefined);
   const displayLoans = userModel?.loans;
 
   return (
