@@ -263,6 +263,7 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
             step="1"
             min="0"
             value={betAmountDisplay}
+            ariaLabel="Bet amount"
             onChange={(e) => {
               setEditableAmount(
                 e.target.value ? Math.round(parseFloat(e.target.value)) : null
