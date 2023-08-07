@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import React, { ChangeEvent } from "react";
 import { createUseStyles } from "react-jss";
+import CrossIcon from "./icons/CrossIcon";
 
 const useStyles = createUseStyles({
   calculatorRow: {
@@ -17,16 +18,30 @@ const useStyles = createUseStyles({
     fontStyle: "italic",
     fontSize: "0.8rem",
   },
+  inputWrapper: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+  },
   input: {
     lineHeight: "26px",
     borderRadius: 4,
     padding: "0 6px",
+    flex: 1,
+    minWidth: 0, // inputs have a fairly large min-width by default
   },
   inputError: {
     border: "2px solid red",
   },
   inputSuccess: {
     border: "2px solid green",
+  },
+  clearButton: {
+    cursor: "pointer",
+    userSelect: "none",
+    height: 24,
+    marginLeft: 4,
+    color: "#a8a8a8",
   },
 });
 
@@ -43,6 +58,7 @@ interface InputFieldProps {
   readOnly?: boolean;
   disabled?: boolean;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onClear?: () => void;
   decimalPlaces?: number;
   significantFigures?: number;
   status?: "error" | "success" | undefined;
@@ -96,22 +112,27 @@ export const InputField: React.FC<InputFieldProps> = (props) => {
           )}
         </div>
       )}
-      <input
-        id={props.id}
-        type={props.type}
-        step={props.step}
-        min={props.min}
-        max={props.max}
-        value={displayValue ?? ""}
-        placeholder={props.placeholder}
-        readOnly={props.readOnly}
-        disabled={props.disabled}
-        onChange={handleInputChange}
-        className={classNames(classes.input, {
-          [classes.inputSuccess]: props.status === "success",
-          [classes.inputError]: props.status === "error",
-        })}
-      />
+      <div className={classes.inputWrapper}>
+        <input
+          id={props.id}
+          type={props.type}
+          step={props.step}
+          min={props.min}
+          max={props.max}
+          value={displayValue ?? ""}
+          placeholder={props.placeholder}
+          readOnly={props.readOnly}
+          disabled={props.disabled}
+          onChange={handleInputChange}
+          className={classNames(classes.input, {
+            [classes.inputSuccess]: props.status === "success",
+            [classes.inputError]: props.status === "error",
+          })}
+        />
+        {props.onClear && (
+          <CrossIcon className={classes.clearButton} onClick={props.onClear} />
+        )}
+      </div>
     </div>
   );
 };
