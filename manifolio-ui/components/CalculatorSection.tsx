@@ -259,7 +259,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
             label="Deferral factor (%)"
             subtitle={
               <>
-                A lower values means you are deferring to the market more, so
+                A lower value means you are deferring to the market more, so
                 taking less risk. This is equivalent to{" "}
                 <a
                   href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
