@@ -18,7 +18,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   inputField: {
     flex: 1,
     // Same width as amount input at full width
-    maxWidth: 403,
+    maxWidth: 431,
   },
   profileContainer: {
     display: "flex",
@@ -240,6 +240,7 @@ const UserSection: React.FC<UserSectionProps> = ({
           placeholder='e.g "jack" or "https://manifold.markets/jack"'
           value={usernameInput}
           onChange={(e) => setUsernameInput(e.target.value)}
+          onClear={() => setUsernameInput(undefined)}
           status={userInputStatus}
           className={classes.inputField}
         />

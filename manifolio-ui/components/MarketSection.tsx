@@ -23,7 +23,7 @@ const useStyles = createUseStyles((theme: Theme) => ({
   },
   inputField: {
     flex: 1,
-    maxWidth: 403,
+    maxWidth: 431,
   },
   profileContainer: {
     display: "flex",
@@ -224,6 +224,7 @@ const MarketSection: React.FC<MarketSectionProps> = ({
           placeholder='e.g. "https://manifold.markets/jskf/will-alexbgoode"'
           value={marketInput}
           onChange={(e) => setMarketInput(e.target.value)}
+          onClear={() => setMarketInput(undefined)}
           status={inputStatus}
           className={classes.inputField}
         />

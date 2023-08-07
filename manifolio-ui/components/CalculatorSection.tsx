@@ -54,6 +54,9 @@ const useStyles = createUseStyles((theme: Theme) => ({
     color: theme.green,
   },
   advancedOptions: {
+    minHeight: 125,
+  },
+  advancedOptionsToggle: {
     fontWeight: 600,
     cursor: "pointer",
     width: "fit-content",
@@ -240,48 +243,50 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
         betRecommendation={betRecommendation}
         setRefetchCounter={setRefetchCounter}
       />
-      <div
-        className={classes.advancedOptions}
-        onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-      >
-        <span
-          className={classNames(classes.arrow, {
-            [classes.arrowOpen]: showAdvancedOptions,
-          })}
+      <div className={classes.advancedOptions}>
+        <div
+          className={classes.advancedOptionsToggle}
+          onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
         >
-          ▶
-        </span>{" "}
-        Advanced options
+          <span
+            className={classNames(classes.arrow, {
+              [classes.arrowOpen]: showAdvancedOptions,
+            })}
+          >
+            ▶
+          </span>{" "}
+          Advanced options
+        </div>
+        {showAdvancedOptions && (
+          <>
+            <InputField
+              label="Deferral factor (%)"
+              subtitle={
+                <>
+                  A lower value means you are deferring to the market more, so
+                  taking less risk. This is equivalent to{" "}
+                  <a
+                    href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    &quot;fractional Kelly betting&quot;
+                  </a>
+                </>
+              }
+              id="deferralFactorInput"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              value={deferralFactor}
+              onChange={(e) => setDeferralFactor(parseFloat(e.target.value))}
+              className={classes.inputField}
+            />
+            {/* TODO dates */}
+          </>
+        )}
       </div>
-      {showAdvancedOptions && (
-        <>
-          <InputField
-            label="Deferral factor (%)"
-            subtitle={
-              <>
-                A lower value means you are deferring to the market more, so
-                taking less risk. This is equivalent to{" "}
-                <a
-                  href="https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  &quot;fractional Kelly betting&quot;
-                </a>
-              </>
-            }
-            id="deferralFactorInput"
-            type="number"
-            step="1"
-            min="0"
-            max="100"
-            value={deferralFactor}
-            onChange={(e) => setDeferralFactor(parseFloat(e.target.value))}
-            className={classes.inputField}
-          />
-          {/* TODO dates */}
-        </>
-      )}
     </>
   );
 };
