@@ -80,10 +80,7 @@ export default function Home() {
     <>
       <Head>
         <title>{title}</title>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
         {/* General tags */}
         <meta name="description" content={description} />
