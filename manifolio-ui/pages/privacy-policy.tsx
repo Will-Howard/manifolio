@@ -88,12 +88,12 @@ export default function PrivacyPolicy() {
 
             <h3>1. Introduction</h3>
             <p>
-              Manifolio, operated by an individual ("I", "me", or "my"),
-              provides this Privacy Policy to inform you of the collection, use,
-              and disclosure of personal information when using my website. This
-              Privacy Policy may be updated periodically, and by continuing to
-              use the website after such updates, you consent to the revised
-              policy.
+              Manifolio, operated by an individual (&quot;I&quot;,
+              &quot;me&quot;, or &quot;my&quot;), provides this Privacy Policy
+              to inform you of the collection, use, and disclosure of personal
+              information when using my website. This Privacy Policy may be
+              updated periodically, and by continuing to use the website after
+              such updates, you consent to the revised policy.
             </p>
 
             <h3>2. Information Collection and Use</h3>
