@@ -4,6 +4,12 @@ Bet size calculator for YES/NO questions on [Manifold markets](https://Manifold.
 
 [Go to site.](https://manifol.io/)
 
+The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
+
+- Over the long run, it is guaranteed to outperform any other strategy at a given percentile of wealth. I.e. the median outcome of someone using the Kelly criterion will beat the median outcome of someone with the same beliefs using any other strategy, and so will the 99th percentile outcome.
+- Given a specific wealth goal, it minimises the expected time to reach that goal compared to any other strategy.
+- A market where all participants bet according to the Kelly criterion learns at the optimal rate ([source](https://people.cs.umass.edu/~wallach/workshops/nips2011css/papers/Beygelzimer.pdf)).
+
 **Basic usage**
 
 ![Manifolio Screenshot](images/screenshot.png)
@@ -17,6 +23,8 @@ You can put in your Manifold API key (found [here](https://Manifold.markets/prof
 2. [Acknowledgements](#acknowledgements)
 
 ## Guide
+
+_(Some of this is repeated from the intro above)_
 
 The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
 
@@ -47,6 +55,14 @@ The exact calculation it's doing is maximising expected log wealth, assuming:
  - For all the other markets in your portfolio, the market probability is correct, and you will wait for them to resolve
 
 So you're basically saying to it "Suppose I have one more action I can take on this earth, which is to bet on this specific market. After this I will walk away and wait until the end of time for every Manifold market to resolve. What sized bet should I make to maximise my expected log wealth in this scenario?"
+
+### Basic usage
+
+![Manifolio Screenshot](images/screenshot.png)
+
+Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
+
+You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
 
 ### Advanced usage
 
