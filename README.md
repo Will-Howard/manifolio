@@ -12,11 +12,11 @@ The Kelly criterion has some nice properties which means it's probably the best 
 
 **Basic usage**
 
-![Manifolio Screenshot](images/screenshot.png)
-
 Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
 
 You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+
+![Manifolio Screenshot](images/screenshot.png)
 
 ## Table of Contents
 1. [Guide](#guide)
@@ -58,11 +58,11 @@ So you're basically saying to it "Suppose I have one more action I can take on t
 
 ### Basic usage
 
-![Manifolio Screenshot](images/screenshot.png)
-
 Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
 
 You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+
+![Manifolio Screenshot](images/screenshot.png)
 
 ### Advanced usage
 
