@@ -4,19 +4,27 @@ Bet size calculator for YES/NO questions on [Manifold markets](https://Manifold.
 
 [Go to site.](https://manifol.io/)
 
-**Basic usage**
+The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
 
-![Manifolio Screenshot](images/screenshot.png)
+- Over the long run, it is guaranteed to outperform any other strategy at a given percentile of wealth. I.e. the median outcome of someone using the Kelly criterion will beat the median outcome of someone with the same beliefs using any other strategy, and so will the 99th percentile outcome.
+- Given a specific wealth goal, it minimises the expected time to reach that goal compared to any other strategy.
+- A market where all participants bet according to the Kelly criterion learns at the optimal rate ([source](https://people.cs.umass.edu/~wallach/workshops/nips2011css/papers/Beygelzimer.pdf)).
+
+**Basic usage**
 
 Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
 
 You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+
+![Manifolio Screenshot](images/screenshot.png)
 
 ## Table of Contents
 1. [Guide](#guide)
 2. [Acknowledgements](#acknowledgements)
 
 ## Guide
+
+_(Some of this is repeated from the intro above)_
 
 The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
 
@@ -48,6 +56,14 @@ The exact calculation it's doing is maximising expected log wealth, assuming:
 
 So you're basically saying to it "Suppose I have one more action I can take on this earth, which is to bet on this specific market. After this I will walk away and wait until the end of time for every Manifold market to resolve. What sized bet should I make to maximise my expected log wealth in this scenario?"
 
+### Basic usage
+
+Input your **username**, the **url of the market** you want to bet on, and your **estimate of the true probability**. It will then tell you the amount to bet to maximise your log wealth, _given that your estimate is correct_.
+
+You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
+
+![Manifolio Screenshot](images/screenshot.png)
+
 ### Advanced usage
 
 **Deferral factor**
@@ -56,17 +72,17 @@ There is also a **deferral factor** field in "Advanced options", which I would r
 
 When people use the Kelly formula in practice, they usually bet [some fixed fraction](https://www.lesswrong.com/posts/TNWnK9g2EeRnQA8Dg/never-go-full-kelly) of the recommended amount to be more risk averse. The deferral factor is exactly equivalent to this fraction. If a market had enough liquidity that the odds were effectively fixed, then a deferral factor of 50% would correspond to betting 50% of the Kelly formula amount.
 
-The """bayesian""" interpretation of this number is that you are factoring in some chance that the market is right and you are wrong, so a deferral factor of 10% means you think there is a 10% chance you are right and a 90% that the market is right*. Or, equivalently again, that the actual probability to use in the calculation is 10% of the way from the market's estimate to your estimate. If this is all too confusing just remember that setting it to 100% can cause you to lose money by being overconfident, so you should probably leave it at some middling value.
+The """bayesian""" interpretation of this number is that you are factoring in some chance that the market is right and you are wrong, so a deferral factor of 10% means you think there is a 10% chance you are right and a 90% chance that the market is right*. Or, equivalently again, that the actual probability to use in the calculation is 10% of the way between the market's estimate and your estimate. If this is all too confusing just remember that setting it to 100% will likely cause you to lose money by being overconfident, so you should probably leave it at some middling value.
 
-**Interpreting the "Annual return" numbers**
+**Interpreting the "Expected return" numbers**
 
-The "Annual return" numbers are very important. The calculation comes up with the best bet it can _on this specific market, given a certain edge, and a certain time to resolution_. It can't account for the opportunity cost of not betting on other markets that have more favourable odds. So if the time to resolution is very long or your edge over the market is very small you can still end up not doing that well.
+The "Expected return" numbers are very important. The calculation comes up with the best bet it can _on this specific market, given a certain edge, and a certain time to resolution_. It can't account for the opportunity cost of not betting on other markets that have more favourable odds. So if the time to resolution is very long or your edge over the market is very small you can still end up not doing that well.
 
-The **"Annual return if you made many bets like this"** number is simply the _expected_ (not log) return of the bet as an annualised percentage. It's the answer to the question "Suppose you found 1000 bets like this one and spread all your money across them, such that any variation gets averaged over to 0, what would your return be?". If you are betting on fairly illiquid markets then this is the more important number to look at, because the return from any one market will be quite small so you will have to rely on averaging over many of them.
+The **"Expected return of this bet on it's own"** number is simply the _expected_ (not log) return of the bet, ignoring the rest of your portfolio, as an annualised percentage. It's the answer to the question "Suppose you found 1000 bets like this one and spread all your money across them, such that any variation gets averaged over to 0, what would your return be?". If you are betting on fairly illiquid markets then this is the more important number to look at, because the return from any one market will be quite small so you will have to rely on averaging over many of them.
 
-_(Note: this number can be negative if you already have a position in the market which is in the right direction but too large (and possibly in other scenarios). This is technically correct, because it will tell you to bet in the opposite direction to sacrifice some expected value in return for an increase in expected log value. This is pretty confusing though, as the whole thought experiment of "suppose you found 1000 bets like this" breaks down if you are also supposing that all these bets are on markets you have a large position in already.)_
+_(Note: this number can be negative if you already have a position in the market which is in the right direction but too large (and possibly in other scenarios). This is technically correct, because it will tell you to bet in the opposite direction to sacrifice some expected value in return for an increase in expected log value of your entire portfolio. This is pretty confusing though, as the thought experiment of "suppose you found 1000 bets like this" breaks down if you are also supposing that all these bets are on markets you have a large position in already.)_
 
-The **"Annual return if this were your only bet"** number is the expected log return of your entire portfolio as a result of the recommended bet (also as an annualised percentage). This is the number that the calculator is trying to maximise.
+The **"Expected growth in entire portfolio due to this bet"** number is the expected log return of your entire portfolio as a result of the recommended bet (also as an annualised percentage). This is the number that the calculator is trying to maximise. If you are betting in very liquid markets (that can absorb a lot of mana without reaching your probability estimate), then this is the more useful number to look at.
 
 ### Things to watch out for/known issues
 
