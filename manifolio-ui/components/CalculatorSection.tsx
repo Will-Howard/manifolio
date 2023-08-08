@@ -12,6 +12,7 @@ import { CpmmMarketModel } from "@/lib/market";
 import PlaceBetSection from "./PlaceBetSection";
 import classNames from "classnames";
 import useThrottle from "./hooks/useThrottle";
+import { formatRoi } from "@/lib/utils";
 
 const useStyles = createUseStyles((theme: Theme) => ({
   inputSection: {
@@ -168,18 +169,6 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     estimatedProb,
   ]);
 
-  const formatRoi = (roi?: number) => {
-    if (roi === undefined) return "—";
-
-    const roiPercent = (roi - 1) * 100;
-    if (Math.abs(roiPercent) < 0.01) return "0%"; // Avoid -0.0%
-
-    // 1 decimal place if it's less than 10%, 2 if it's less than 1%, 0 otherwise
-    const decimalPlaces = roiPercent < 1 ? 2 : roiPercent < 10 ? 1 : 0;
-    // Also format with commas
-    return `${parseFloat(roiPercent.toFixed(decimalPlaces)).toLocaleString()}%`;
-  };
-
   const formatBetRecommendation = (
     betRecommendation?: BetRecommendationFull
   ) => {
@@ -225,12 +214,12 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
           classes={classes}
         />
         <Detail
-          label="Annual return if you made many bets like this"
+          label="Expected return of this bet on it's own"
           value={formatRoi(betRecommendation?.annualRoi)}
           classes={classes}
         />
         <Detail
-          label="Annual return if this were your only bet"
+          label="Expected growth in entire portfolio due to this bet"
           value={formatRoi(betRecommendation?.annualTotalRoi)}
           classes={classes}
         />

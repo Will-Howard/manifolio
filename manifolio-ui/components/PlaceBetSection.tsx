@@ -250,6 +250,9 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
     setRefetchCounter,
   ]);
 
+  const betSharesDisplay =
+    betShares && Math.abs(betShares) > 0.01 ? `M${formatInt(betShares)}` : "M0";
+
   return (
     <div className={classes.placeBetSection}>
       <div className={classes.betInputSection}>
@@ -318,7 +321,7 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
               </strong>
             </>
           }
-          value={`M${formatInt(betShares)}`}
+          value={betSharesDisplay}
           classes={classes}
         />
         <Detail

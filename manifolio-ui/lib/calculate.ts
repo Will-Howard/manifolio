@@ -694,9 +694,9 @@ export function calculateFullKellyBet({
         "your balance then there is a non-zero chance of losing all your money, so you shouldn't bet. " +
         "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
         `all your money does not actually occur in any of the (up to ${mcSampleSize.toLocaleString()}) scenarios it simulates. ` +
-        `In this case this did occur in ${
-          pRuin * 100
-        }% of scenarios, so the recommended bet is 0. You may be able to bring down this risk by selling large ` +
+        `In this case this did occur in ${(pRuin * 100).toPrecision(
+          4
+        )}% of scenarios, so the recommended bet is 0. You may be able to bring down this risk by selling large ` +
         "positions that you have held for a long time (which will have accumulated a lot of loans).",
       severity: "warning",
     });
