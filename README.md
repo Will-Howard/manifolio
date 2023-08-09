@@ -14,7 +14,7 @@ You can put in your Manifold API key (found [here](https://Manifold.markets/prof
 
 ## Table of Contents
 1. [Guide](#guide)
-2. [Installing the Chrome extension]()
+2. [Installing the Chrome extension](#installing-the-chrome-extension)
 3. [Acknowledgements](#acknowledgements)
 
 ## Guide
