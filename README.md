@@ -1,6 +1,6 @@
 # Manifolio
 
-Bet size calculator for YES/NO questions on [Manifold markets](https://Manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log(wealth).
+Bet size calculator for YES/NO questions on [Manifold](https://Manifold.markets/). For a given probability, it calculates the optimal bet to place according to the [Kelly criterion](https://en.wikipedia.org/wiki/Kelly_criterion), i.e. maximising expected log(wealth).
 
 [Go to site.](https://manifol.io/)
 
@@ -23,8 +23,8 @@ _(Some of this is repeated from the intro above)_
 
 The Kelly criterion has some nice properties which means it's probably the best strategy to use when making bets:
 
-- Over the long run, it is guaranteed to outperform any other strategy at a given percentile of wealth. I.e. the median outcome of someone using the Kelly criterion will beat the median outcome of someone with the same beliefs using any other strategy, and so will the 99th percentile outcome.
 - Given a specific wealth goal, it minimises the expected time to reach that goal compared to any other strategy.
+- It maximises wealth in the median outcome.
 - A market where all participants bet according to the Kelly criterion learns at the optimal rate ([source](https://people.cs.umass.edu/~wallach/workshops/nips2011css/papers/Beygelzimer.pdf)).
 
 There is a formula which can be used in the case of simple bets taken one at a time, with fixed odds:
@@ -41,8 +41,6 @@ This doesn't work that well on Manifold or other prediction markets, because:
  - You bet on several things at the same time, so you don't have a fixed bankroll. You have a balance, plus a portfolio of other bets with have a range of possible outcomes.
 
 This calculator accounts for those two things, plus some other stuff like how you should bet if you already have an open position on the market in question.
-
-<br/>
 
 The exact calculation it's doing is maximising expected log wealth, assuming:
  - The only action you can take is to bet on the specific market you have entered
@@ -87,6 +85,17 @@ The **"Expected growth in entire portfolio due to this bet"** number is the expe
  - Complications related to the Manifold loan system: If you have outstanding loans greater than your total balance, the technically correct thing to do is to bet nothing. This is because log(0) is negative infinity, so any chance of ending up with 0 net worth gets an infinite penalty when maximising log wealth. This is pretty conservative though, as the chance of this happening can be vanishingly small if you have a reasonably diversified portfolio. If it were to follow this then for most power users it would recommend a bet of 0 which would rather defeat the point. Instead, I have made it treat the worst case as the _worst outcome that it actually simulates_ (out of 50,000 simulations), rather than the actual worst _possible_ case (which is every bet resolving against you).
 
 ## Installing the Chrome extension
+
+The chrome extension prefills the market url based on the page you are on, which makes the whole thing a lot more convenient. Currently it's being reviewed by Google, so if you want to 
+
+1. Download the `chrome-extension/` folder. The easiest way to do this is to download the whole repository with
+```
+git clone https://github.com/Will-Howard/manifolio.git
+```
+2. Go to [chrome://extensions/](chrome://extensions/), make sure "Developer mode" (toggle in the top right) is enabled
+3. Click "Load unpacked" and select the `chrome-extension/` folder that you have downloaded (just this folder, not the whole repo). It should then install the extension
+
+![Manifolio Chrome extension screenshot](images/extension-screenshot.png)
 
 <!-- ## Local setup
 
