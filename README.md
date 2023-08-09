@@ -86,13 +86,13 @@ The **"Expected growth in entire portfolio due to this bet"** number is the expe
 
 ## Installing the Chrome extension
 
-The chrome extension prefills the market url based on the page you are on, which makes the whole thing a lot more convenient. Currently it's being reviewed by Google, so if you want to 
+The chrome extension prefills the market url based on the page you are on, which makes the whole thing a lot more convenient. Currently it's still being reviewed by Google for the web store, so if you want to install it you will have to follow these steps:
 
 1. Download the `chrome-extension/` folder. The easiest way to do this is to download the whole repository with
 ```
 git clone https://github.com/Will-Howard/manifolio.git
 ```
-2. Go to [chrome://extensions/](chrome://extensions/), make sure "Developer mode" (toggle in the top right) is enabled
+2. Go to [chrome://extensions/](chrome://extensions/) in your browser, make sure "Developer mode" (toggle in the top right) is enabled
 3. Click "Load unpacked" and select the `chrome-extension/` folder that you have downloaded (just this folder, not the whole repo). It should then install the extension
 
 ![Manifolio Chrome extension screenshot](images/extension-screenshot.png)
