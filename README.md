@@ -55,8 +55,6 @@ Input your **username**, the **url of the market** you want to bet on, and your 
 
 You can put in your Manifold API key (found [here](https://Manifold.markets/profile) if you are logged in) to place bets via the calculator. This isn't necessary for it to work though, just the username is required (and you can even try other people's usernames for fun).
 
-![Manifolio Screenshot](images/screenshot.png)
-
 ### Advanced usage
 
 **Deferral factor**
