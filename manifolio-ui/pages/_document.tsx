@@ -6,6 +6,7 @@ import Document, {
   DocumentContext,
 } from "next/document";
 import { SheetsRegistry, JssProvider, createGenerateId } from "react-jss";
+import { Analytics } from "@vercel/analytics/react";
 
 class MyDocument extends Document {
   static async getInitialProps(ctx: DocumentContext) {
@@ -40,9 +41,10 @@ class MyDocument extends Document {
     return (
       <Html lang="en">
         <Head />
-        <body style={{margin: 0}}>
+        <body style={{ margin: 0 }}>
           <Main />
           <NextScript />
+          <Analytics />
         </body>
       </Html>
     );
