@@ -1,0 +1,3 @@
+[submodule "manifolio-ui/any-port-in-a-storm"]
+	path = manifolio-ui/any-port-in-a-storm
+	url = https://github.com/Will-Howard/any-port-in-a-storm.git
