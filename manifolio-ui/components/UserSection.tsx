@@ -153,17 +153,17 @@ const UserSection: React.FC<UserSectionProps> = ({
   // Fetch the user
   useEffect(() => {
     usernameInputRef.current = usernameInput;
+    const parsedUsername = parseUsername(usernameInput);
+
     if (!usernameInput || usernameInput.length == 0) return;
     if (
-      usernameInput === user?.username &&
+      parsedUsername === user?.username &&
       refetchCounterRef.current === refetchCounter
     ) {
       setFoundUser(true);
       return;
     }
     refetchCounterRef.current = refetchCounter;
-
-    const parsedUsername = parseUsername(usernameInput);
 
     const tryFetchUser = async (username: string) => {
       logger.debug("Fetching user", username);
