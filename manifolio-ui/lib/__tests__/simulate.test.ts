@@ -217,7 +217,7 @@ test("Test for getBetRecommendation with low liquidity, but a limit bet", async 
   const estimatedProb = 0.8;
   const deferenceFactor = 1;
 
-  // Create market model with low high liquidity
+  // Create market model with low liquidity
   const marketModel = createDummyMarketModel({
     probability: marketProb,
     liquidity: 100,
