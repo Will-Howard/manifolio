@@ -120,6 +120,10 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     "deferralFactor",
     50
   );
+  const [overdraft, setOverdraft] = useLocalStorageState<number>(
+    "overdraft",
+    0
+  );
   const [showAdvancedOptions, setShowAdvancedOptions] =
     useLocalStorageState<boolean>("showAdvancedOptions", false);
 
@@ -134,11 +138,13 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel: CpmmMarketModel,
       userModel: UserModel,
       estimatedProb: number,
-      deferenceFactor: number
+      deferenceFactor: number,
+      overdraft: number
     ) => {
       const kellyWithPortfolioOptimalBet = getBetRecommendation({
         estimatedProb,
         deferenceFactor,
+        overdraft,
         marketModel,
         userModel,
         pushError,
@@ -158,7 +164,8 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
       marketModel,
       userModel,
       estimatedProb,
-      isNaN(deferralFactor) ? 0 : deferralFactor / 100
+      isNaN(deferralFactor) ? 0 : deferralFactor / 100,
+      isNaN(overdraft) ? 0 : overdraft
     );
   }, [
     deferralFactor,
@@ -167,6 +174,7 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
     userModel,
     getBetRecommendationThrottled,
     estimatedProb,
+    overdraft,
   ]);
 
   const formatBetRecommendation = (
@@ -272,7 +280,17 @@ const CalculatorSection: React.FC<CalculatorSectionProps> = ({
               onChange={(e) => setDeferralFactor(parseFloat(e.target.value))}
               className={classes.inputField}
             />
-            {/* TODO dates */}
+            <InputField
+              label="Mana overdraft"
+              subtitle="How negative you are willing to let your balance go in the worst case scenario"
+              id="overdraftInput"
+              type="number"
+              step="1"
+              min="0"
+              value={overdraft}
+              onChange={(e) => setOverdraft(parseFloat(e.target.value))}
+              className={classes.inputField}
+            />
           </>
         )}
       </div>
