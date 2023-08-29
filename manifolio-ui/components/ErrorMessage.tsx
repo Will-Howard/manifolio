@@ -41,6 +41,7 @@ const useStyles = createUseStyles({
     fontWeight: 500,
     color: "black",
     flex: 1,
+    whiteSpace: "pre-line",
   },
 });
 

@@ -65,6 +65,11 @@ When people use the Kelly formula in practice, they usually bet [some fixed frac
 
 The """bayesian""" interpretation of this number is that you are factoring in some chance that the market is right and you are wrong, so a deferral factor of 10% means you think there is a 10% chance you are right and a 90% chance that the market is right*. Or, equivalently again, that the actual probability to use in the calculation is 10% of the way between the market's estimate and your estimate. If this is all too confusing just remember that setting it to 100% will likely cause you to lose money by being overconfident, so you should probably leave it at some middling value.
 
+**Mana overdraft**
+
+Setting a Mana overdraft essentially sets the point which is considered "losing all your money" to a negative value, and so can allow you to accept some risk of ruin. You may want to do this if you have a lot of loans relative to your balance, which
+will cause the calculator to either recommend a very low bet or or a bet of 0, although I'm not sure I would recommend it.
+
 **Interpreting the "Expected return" numbers**
 
 The "Expected return" numbers are very important. The calculation comes up with the best bet it can _on this specific market, given a certain edge, and a certain time to resolution_. It can't account for the opportunity cost of not betting on other markets that have more favourable odds. So if the time to resolution is very long or your edge over the market is very small you can still end up not doing that well.

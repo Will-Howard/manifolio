@@ -345,6 +345,7 @@ const getMarketDeferralProb = (
 export function calculateFullKellyBet({
   estimatedProb,
   deferenceFactor,
+  overdraft,
   marketModel,
   userModel,
   pushError = () => {},
@@ -352,6 +353,7 @@ export function calculateFullKellyBet({
 }: {
   estimatedProb: number;
   deferenceFactor: number;
+  overdraft: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
   pushError?: (error: ManifolioError) => void;
@@ -367,7 +369,8 @@ export function calculateFullKellyBet({
   const noShares =
     currentPosition?.outcome === "NO" ? currentPosition.payout : 0;
 
-  const balance = userModel.balance;
+  const hasOverdraft = overdraft !== 0;
+  const balance = userModel.balance + overdraft;
 
   // YES and NO shares relative to the balance after loans
   const sYes = yesShares / balance;
@@ -672,10 +675,12 @@ export function calculateFullKellyBet({
     pushError({
       key: "ruinWarning",
       message:
-        "You have total loans greater than your current balance. Under strict Kelly betting, " +
+        `You have total loans greater than your current balance${
+          hasOverdraft ? " plus overdraft" : ""
+        }. Under strict Kelly betting, ` +
         "you should not bet at all in this scenario because there is non-zero risk of ruin. " +
         "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
-        `all your money does not actually occur in any of the (up to ${mcSampleSize.toLocaleString()}) scenarios it simulates.`,
+        `all your money does not actually occur in any of the (${mcSampleSize.toLocaleString()}) scenarios it simulates.`,
       severity: "warning",
     });
   }
@@ -690,10 +695,11 @@ export function calculateFullKellyBet({
       key: "ruinWarning",
       message:
         "You have a non-trivial risk of ruin with your current portfolio, so this caculator will recommend " +
-        `that you should not bet at all. Under strict Kelly betting, if you have total loans greater than ` +
-        "your balance then there is a non-zero chance of losing all your money, so you shouldn't bet. " +
+        `that you should not bet at all. If you really are ok with some risk of ruin, you can increase the "Mana overdraft" field in advanced options to force it to recommend a bet.` +
+        ` This essentially sets the point which is considered "losing all your money" to a negative value, and so allows you to take more risk.\n\n` +
+        `Under strict Kelly betting, if you have any risk of losing all your money, you shouldn't bet. ` +
         "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
-        `all your money does not actually occur in any of the (up to ${mcSampleSize.toLocaleString()}) scenarios it simulates. ` +
+        `all your money does not actually occur in any of the (${mcSampleSize.toLocaleString()}) scenarios it simulates. ` +
         `In this case this did occur in ${(pRuin * 100).toPrecision(
           4
         )}% of scenarios, so the recommended bet is 0. You may be able to bring down this risk by selling large ` +
@@ -794,6 +800,7 @@ export function calculateFullKellyBet({
 function getBetRecommendationInner({
   estimatedProb,
   deferenceFactor,
+  overdraft,
   marketModel,
   userModel,
   pushError = () => {},
@@ -801,6 +808,7 @@ function getBetRecommendationInner({
 }: {
   estimatedProb: number;
   deferenceFactor: number;
+  overdraft: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
   pushError?: (error: ManifolioError) => void;
@@ -817,6 +825,7 @@ function getBetRecommendationInner({
   } = calculateFullKellyBet({
     estimatedProb,
     deferenceFactor,
+    overdraft,
     marketModel,
     userModel,
     pushError,
@@ -884,6 +893,7 @@ function getBetRecommendationInner({
 export function getBetRecommendation({
   estimatedProb,
   deferenceFactor,
+  overdraft = 0,
   marketModel,
   userModel,
   pushError = () => {},
@@ -891,6 +901,7 @@ export function getBetRecommendation({
 }: {
   estimatedProb: number;
   deferenceFactor: number;
+  overdraft?: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
   pushError?: (error: ManifolioError) => void;
@@ -920,6 +931,7 @@ export function getBetRecommendation({
     return getBetRecommendationInner({
       estimatedProb,
       deferenceFactor,
+      overdraft,
       marketModel,
       userModel,
       pushError,
