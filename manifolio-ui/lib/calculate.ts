@@ -695,7 +695,7 @@ export function calculateFullKellyBet({
       key: "ruinWarning",
       message:
         "You have a non-trivial risk of ruin with your current portfolio, so this caculator will recommend " +
-        `that you should not bet at all. If you really are ok with some risk of losing all your money, you can increase the "Mana overdraft" field in advanced options to force it to recommend a bet.` +
+        `that you should not bet at all. If you really are ok with some risk of ruin, you can increase the "Mana overdraft" field in advanced options to force it to recommend a bet.` +
         ` This essentially sets the point which is considered "losing all your money" to a negative value, and so allows you to take more risk.\n\n` +
         `Under strict Kelly betting, if you have any risk of losing all your money, you shouldn't bet. ` +
         "This calculator allows some leeway in this, and will still recommend a bet as long as losing " +
