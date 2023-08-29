@@ -370,11 +370,12 @@ export function calculateFullKellyBet({
     currentPosition?.outcome === "NO" ? currentPosition.payout : 0;
 
   const hasOverdraft = overdraft !== 0;
-  const balance = userModel.balance + overdraft;
+  const balance = userModel.balance;
+  const balancePlusOverdraft = userModel.balance + overdraft;
 
   // YES and NO shares relative to the balance after loans
-  const sYes = yesShares / balance;
-  const sNo = noShares / balance;
+  const sYes = yesShares / balancePlusOverdraft;
+  const sNo = noShares / balancePlusOverdraft;
 
   const illiquidPmf = userModel.getIlliquidPmf(currentPosition?.contractId);
 
@@ -383,7 +384,7 @@ export function calculateFullKellyBet({
   const marketDeferralProb = getMarketDeferralProb(
     currentPosition,
     marketModel,
-    balance
+    balancePlusOverdraft
   );
 
   const pYes =
@@ -395,14 +396,14 @@ export function calculateFullKellyBet({
     (currentPosition?.payout ?? 0) * (currentPosition?.probability ?? 0);
   const illiquidEV = userModel.illiquidEV - currentPositionEV;
 
-  const relativeIlliquidEV = illiquidEV / balance;
-  const relativeLoans = userModel.loans / balance;
+  const relativeIlliquidEV = illiquidEV / balancePlusOverdraft;
+  const relativeLoans = userModel.loans / balancePlusOverdraft;
 
   const pmfEV = integrateOverPmf((payout) => payout, illiquidPmf);
 
   logger.debug("Available:", {
-    balance,
-    balanceAfterLoans: balance - userModel.loans,
+    balance: balancePlusOverdraft,
+    balanceAfterLoans: balancePlusOverdraft - userModel.loans,
     illiquidEV,
     pmfEV,
     relativeIlliquidEV,
@@ -430,7 +431,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balance;
+    const relativeBetEstimate = betEstimate / balancePlusOverdraft;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -470,11 +471,12 @@ export function calculateFullKellyBet({
 
     const F =
       dfYesdf *
-      ((pYes * fYes * dbYesdBetYes * balance) /
+      ((pYes * fYes * dbYesdBetYes * balancePlusOverdraft) /
         (1 + I + sYes + fYes * bYes - fNo));
     const G =
       dfNodf *
-      ((qYes * fNo * dbNodBetNo * balance) / (1 + I + sNo + fNo * bNo - fYes));
+      ((qYes * fNo * dbNodBetNo * balancePlusOverdraft) /
+        (1 + I + sNo + fNo * bNo - fYes));
 
     const result = A + B + C + E + F + G;
     return result;
@@ -511,7 +513,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balance;
+    const relativeBetEstimate = betEstimate / balancePlusOverdraft;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -529,7 +531,7 @@ export function calculateFullKellyBet({
       fNo && D((x: number) => englishOdds(x, "NO"), absBetEstimate, 0.1);
 
     const integrand = (payout: number) => {
-      const I = payout / balance - relativeLoans;
+      const I = payout / balancePlusOverdraft - relativeLoans;
 
       if (
         Math.min(
@@ -552,11 +554,11 @@ export function calculateFullKellyBet({
 
       const F =
         dfYesdf *
-        ((pYes * fYes * dbYesdBetYes * balance) /
+        ((pYes * fYes * dbYesdBetYes * balancePlusOverdraft) /
           (1 + I + sYes + fYes * bYes - fNo));
       const G =
         dfNodf *
-        ((qYes * fNo * dbNodBetNo * balance) /
+        ((qYes * fNo * dbNodBetNo * balancePlusOverdraft) /
           (1 + I + sNo + fNo * bNo - fYes));
 
       const result = A + B + C + E + F + G;
@@ -577,7 +579,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balance;
+    const relativeBetEstimate = betEstimate / balancePlusOverdraft;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -588,7 +590,7 @@ export function calculateFullKellyBet({
     const bNo = fNo && englishOdds(absBetEstimate, "NO");
 
     const integrand = (payout: number) => {
-      const I = payout / balance - relativeLoans;
+      const I = payout / balancePlusOverdraft - relativeLoans;
 
       if (
         Math.min(
@@ -612,7 +614,7 @@ export function calculateFullKellyBet({
     const integral = integrateOverPmf(integrand, illiquidPmf);
 
     // Add the log of the balance to the integral to make this absolute rather than relative
-    return integral + Math.log(balance);
+    return integral + Math.log(balancePlusOverdraft);
   };
 
   /**
@@ -624,7 +626,7 @@ export function calculateFullKellyBet({
       betEstimate = 1e-3;
     }
 
-    const relativeBetEstimate = betEstimate / balance;
+    const relativeBetEstimate = betEstimate / balancePlusOverdraft;
 
     const fYes = Math.max(relativeBetEstimate, 0);
     const fNo = Math.max(-relativeBetEstimate, 0);
@@ -635,7 +637,7 @@ export function calculateFullKellyBet({
     const bNo = fNo && englishOdds(absBetEstimate, "NO");
 
     const integrand = (payout: number) => {
-      const I = payout / balance - relativeLoans;
+      const I = payout / balancePlusOverdraft - relativeLoans;
 
       if (
         Math.min(
@@ -658,13 +660,13 @@ export function calculateFullKellyBet({
 
     const integral = integrateOverPmf(integrand, illiquidPmf);
 
-    return integral * balance;
+    return integral * balancePlusOverdraft;
   };
 
-  const balanceOnlyBound = (balance - userModel.loans) * 0.99;
+  const balanceOnlyBound = (balancePlusOverdraft - userModel.loans) * 0.99;
   const absoluteBound = Math.min(
     balanceOnlyBound + Math.min(...illiquidPmf.keys()) * 0.99,
-    balance * 0.99
+    balancePlusOverdraft * 0.99
   );
   const cashedOutBound = balanceOnlyBound + illiquidEV * 0.99;
 
@@ -738,11 +740,15 @@ export function calculateFullKellyBet({
     // we want just increasing value
     (a, b) => a - b
   );
-  const optimalBet = findRoot(
+  const optimalBetNaive = findRoot(
     dlogEVdBet,
     Math.max(bounds[0], -absoluteBound),
     Math.min(bounds[1], absoluteBound),
     "binary"
+  );
+  const optimalBet = Math.max(
+    Math.min(optimalBetNaive, balance * 0.99),
+    -balance * 0.99
   );
 
   const optimalBetAmount = Math.abs(optimalBet);
