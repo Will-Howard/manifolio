@@ -893,7 +893,7 @@ function getBetRecommendationInner({
 export function getBetRecommendation({
   estimatedProb,
   deferenceFactor,
-  overdraft,
+  overdraft = 0,
   marketModel,
   userModel,
   pushError = () => {},
@@ -901,7 +901,7 @@ export function getBetRecommendation({
 }: {
   estimatedProb: number;
   deferenceFactor: number;
-  overdraft: number;
+  overdraft?: number;
   marketModel: CpmmMarketModel;
   userModel: UserModel;
   pushError?: (error: ManifolioError) => void;
