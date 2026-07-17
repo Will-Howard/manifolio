@@ -111,7 +111,8 @@ const buildCpmmMarketModelInnerSupabaseApi = async (
     .eq("contract_id", market.id)
     .eq("data->>isFilled", false)
     .eq("data->>isCancelled", false)
-    .eq("is_ante", false)
+    // The is_ante column no longer exists. Filtering on isFilled already
+    // restricts to limit orders, which are never antes
     .eq("is_redemption", false)
     .limit(1000);
 
