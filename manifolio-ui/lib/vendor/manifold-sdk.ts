@@ -6,7 +6,11 @@
 import logger from "@/logger";
 
 const BASE_URL = (() => {
-  return process.env.NEXT_PUBLIC_MANIFOLD_API_URL || "https://manifold.markets";
+  // manifold.markets/api redirects here, but browsers can't follow the
+  // redirect because it lacks CORS headers
+  return (
+    process.env.NEXT_PUBLIC_MANIFOLD_API_URL || "https://api.manifold.markets"
+  );
 })();
 
 export class NetworkError extends Error {
@@ -357,7 +361,7 @@ export class Manifold {
     }
 
     const fullPath = (() => {
-      const pathname = `${BASE_URL}/api/v0${path}`;
+      const pathname = `${BASE_URL}/v0${path}`;
 
       if (!params || isEmpty(params)) return pathname;
 
@@ -390,7 +394,7 @@ export class Manifold {
       throw new Error("Missing API Key");
     }
 
-    return wrappedFetch<RetVal>(`${BASE_URL}/api/v0${path}`, {
+    return wrappedFetch<RetVal>(`${BASE_URL}/v0${path}`, {
       method: "POST",
 
       headers: {
