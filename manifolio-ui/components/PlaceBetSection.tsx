@@ -338,7 +338,7 @@ const PlaceBetSection: React.FC<PlaceBetSectionProps> = ({
             <>
               API key (found{" "}
               <a
-                href="https://manifold.markets/profile"
+                href="https://manifold.markets/me?tab=account+settings"
                 target="_blank"
                 rel="noopener"
               >
