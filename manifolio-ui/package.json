@@ -2,6 +2,9 @@
   "name": "manifolio-ui",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -16,7 +19,7 @@
     "@emotion/styled": "^11.11.0",
     "@mui/material": "^5.14.0",
     "@supabase/supabase-js": "2.2.0",
-    "@types/node": "18.14.6",
+    "@types/node": "^24",
     "@types/react": "18.0.28",
     "@types/react-dom": "18.0.11",
     "@types/seedrandom": "^3.0.5",
