@@ -111,7 +111,6 @@ const buildCpmmMarketModelInnerSupabaseApi = async (
     .eq("contract_id", market.id)
     .eq("data->>isFilled", false)
     .eq("data->>isCancelled", false)
-    .eq("is_ante", false)
     .eq("is_redemption", false)
     .limit(1000);
 
