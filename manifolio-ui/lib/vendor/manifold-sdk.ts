@@ -6,8 +6,6 @@
 import logger from "@/logger";
 
 const BASE_URL = (() => {
-  // manifold.markets/api redirects here, but browsers can't follow the
-  // redirect because it lacks CORS headers
   return (
     process.env.NEXT_PUBLIC_MANIFOLD_API_URL || "https://api.manifold.markets"
   );
