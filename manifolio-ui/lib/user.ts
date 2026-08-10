@@ -428,7 +428,48 @@ const buildUserModelInnerSupabaseApi = async (
       )
   );
 
-  const nonBinaryPositions: ManifoldPosition[] = nonBinaryMarketMetrics
+  // Multi-answer markets store BOTH a contract-level aggregate row (answer_id
+  // null) and one row per answer, and both carry the same `loan`. Summing them
+  // double counts, so keep the per-answer rows and drop the aggregate. Answers
+  // that have already resolved are dropped too: their loans are settled, and
+  // the aggregate row is the only thing that still includes them.
+  const answerIsResolved = (contractId: string, answerId: string): boolean => {
+    const market = nonBinaryMarkets.find(
+      (market: LiteMarket) => market.id === contractId
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const answers = (market as any)?.answers as
+      | { id?: string; resolution?: unknown }[]
+      | undefined;
+    const answer = answers?.find((a) => a?.id === answerId);
+    return answer?.resolution !== undefined;
+  };
+
+  const answerIdOf = (metric: {
+    answer_id?: string;
+    data?: { answerId?: string };
+  }) => metric?.answer_id ?? metric?.data?.answerId;
+
+  const dedupedNonBinaryMetrics = Object.values(
+    groupBy(nonBinaryMarketMetrics, (metric) => metric?.data?.contractId)
+  ).flatMap((metricsForContract) => {
+    const perAnswer = metricsForContract.filter(
+      (metric) => answerIdOf(metric) != null
+    );
+    // Markets with no per-answer breakdown (e.g. dpm free response) only have
+    // the one row, so there is nothing to dedupe.
+    if (perAnswer.length === 0) return metricsForContract;
+
+    return perAnswer.filter(
+      (metric) =>
+        !answerIsResolved(
+          metric?.data?.contractId,
+          answerIdOf(metric) as string
+        )
+    );
+  });
+
+  const nonBinaryPositions: ManifoldPosition[] = dedupedNonBinaryMetrics
     .filter((metric) => Math.abs(metric.data?.payout ?? 0) >= 1)
     .map((metric) => {
       const market = nonBinaryMarkets.find(
